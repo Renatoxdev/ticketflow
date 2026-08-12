@@ -31,6 +31,11 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"app": "TicketFlow API", "status": "ok"}
+
+
 app.include_router(organizer_router)
 app.include_router(events_router)
 app.include_router(tickets_router)
