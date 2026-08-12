@@ -7,6 +7,7 @@ import {registerUser} from "./lib/api";
 import type {AuthSession, UserRole} from "./lib/types";
 
 type Mode = "organizer" | "customer" | "gate";
+type View = Mode | "home";
 
 const demoUsers: Record<UserRole, string> = {
   ORGANIZER: "organizer@example.com",
@@ -22,20 +23,29 @@ function roleForMode(mode: Mode): UserRole {
 
 export function App() {
   const [mode, setMode] = useState<Mode>("organizer");
+  const [view, setView] = useState<View>("home");
   const [sessions, setSessions] = useState<Partial<Record<UserRole, AuthSession>>>({});
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
   const currentRole = roleForMode(mode);
-  const currentSession = sessions[currentRole] ?? null;
+  const currentSession = view === "home" ? null : (sessions[currentRole] ?? null);
 
-  async function enterDemo() {
+  async function enterDemo(targetMode = mode) {
+    const targetRole = roleForMode(targetMode);
+    setMode(targetMode);
+    setView(targetMode);
+    if (sessions[targetRole]) {
+      setAuthError(null);
+      return;
+    }
+
     setAuthLoading(true);
     setAuthError(null);
 
     try {
-      const session = await registerUser(currentRole, demoUsers[currentRole]);
-      setSessions((current) => ({...current, [currentRole]: session}));
+      const session = await registerUser(targetRole, demoUsers[targetRole]);
+      setSessions((current) => ({...current, [targetRole]: session}));
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Erro ao iniciar acesso de teste.");
     } finally {
@@ -43,7 +53,16 @@ export function App() {
     }
   }
 
-  let panel = <DemoLogin loading={authLoading} error={authError} role={currentRole} onEnter={enterDemo} />;
+  let panel = (
+    <DemoLogin
+      loading={authLoading}
+      error={authError}
+      mode={mode}
+      role={currentRole}
+      onEnter={enterDemo}
+      onSelectMode={setMode}
+    />
+  );
 
   if (currentSession && mode === "organizer") panel = <OrganizerPanel session={currentSession} />;
   if (currentSession && mode === "customer") panel = <CustomerPanel session={currentSession} />;
@@ -59,13 +78,16 @@ export function App() {
           </div>
 
           <nav className="mode-switcher">
-            <button className={mode === "organizer" ? "active" : ""} onClick={() => setMode("organizer")} type="button">
+            <button className={view === "home" ? "active" : ""} onClick={() => setView("home")} type="button">
+              Home
+            </button>
+            <button className={view === "organizer" ? "active" : ""} onClick={() => enterDemo("organizer")} type="button">
               Organizador
             </button>
-            <button className={mode === "customer" ? "active" : ""} onClick={() => setMode("customer")} type="button">
+            <button className={view === "customer" ? "active" : ""} onClick={() => enterDemo("customer")} type="button">
               Cliente
             </button>
-            <button className={mode === "gate" ? "active" : ""} onClick={() => setMode("gate")} type="button">
+            <button className={view === "gate" ? "active" : ""} onClick={() => enterDemo("gate")} type="button">
               Portaria
             </button>
           </nav>
@@ -87,34 +109,79 @@ export function App() {
 function DemoLogin({
   loading,
   error,
+  mode,
   role,
   onEnter,
+  onSelectMode,
 }: {
   loading: boolean;
   error: string | null;
+  mode: Mode;
   role: UserRole;
-  onEnter: () => void;
+  onEnter: (mode: Mode) => void;
+  onSelectMode: (mode: Mode) => void;
 }) {
   return (
     <div className="demo-login">
-      <div>
-        <p className="section-label">Acesso demo</p>
-        <h2>Escolha um perfil</h2>
+      <section className="intro-panel">
+        <p className="section-label">Sobre o projeto</p>
+        <h2>Bilheteria online para sessões de cinema</h2>
         <p className="demo-copy">
-          Use um perfil de teste para acessar cada fluxo da aplicação.
+          O TicketFlow simula uma plataforma de ingressos para filmes e séries. O organizador cria sessões usando
+          dados do TVMaze, o cliente compra um ingresso com pagamento simulado e a portaria valida o QR Code na entrada.
         </p>
-      </div>
+        <p className="demo-copy">
+          O objetivo é demonstrar um fluxo completo de produto: integração externa, controle de capacidade, emissão de
+          ingresso e check-in sem reutilização do mesmo código.
+        </p>
+      </section>
+
+      <section className="area-overview" aria-label="Áreas da aplicação">
+        {areaCards.map((area) => (
+          <button
+            className={`area-card ${mode === area.mode ? "active" : ""}`}
+            key={area.mode}
+            onClick={() => onSelectMode(area.mode)}
+            type="button"
+          >
+            <span className="area-step">{area.step}</span>
+            <strong>{area.title}</strong>
+            <span>{area.description}</span>
+          </button>
+        ))}
+      </section>
 
       {error ? <StateBlock title="Entrada não concluída" text={error} tone="danger" /> : null}
 
       <div className="demo-actions">
-        <button className="wide-action" disabled={loading} onClick={onEnter} type="button">
+        <button className="wide-action" disabled={loading} onClick={() => onEnter(mode)} type="button">
           {loading ? "Entrando..." : `Entrar como ${roleLabel(role)}`}
         </button>
       </div>
     </div>
   );
 }
+
+const areaCards: Array<{mode: Mode; step: string; title: string; description: string}> = [
+  {
+    mode: "organizer",
+    step: "01",
+    title: "Organizador",
+    description: "Busca filme ou série no catálogo, define data, sala, capacidade e preço, depois publica a sessão.",
+  },
+  {
+    mode: "customer",
+    step: "02",
+    title: "Cliente",
+    description: "Navega pelos pôsteres em cartaz, escolhe uma sessão, simula o pagamento e recebe o ingresso.",
+  },
+  {
+    mode: "gate",
+    step: "03",
+    title: "Portaria",
+    description: "Confere o token do QR Code, libera ingressos válidos e bloqueia códigos inválidos ou já usados.",
+  },
+];
 
 function roleLabel(role: UserRole) {
   if (role === "ORGANIZER") return "organizador";

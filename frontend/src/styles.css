@@ -246,18 +246,83 @@ code {
 
 .demo-login {
   display: grid;
-  max-width: 760px;
+  max-width: 1120px;
+  margin: 0 auto;
+  justify-items: center;
   gap: var(--space-5);
 }
 
+.intro-panel {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  width: min(100%, 900px);
+  border-bottom: 10px solid var(--red);
+  background: var(--black);
+  padding: var(--space-6);
+  text-align: center;
+  animation: panelIn 420ms ease both;
+}
+
 .demo-copy {
-  max-width: 560px;
+  max-width: 780px;
   margin-top: var(--space-3);
   color: var(--muted);
   line-height: 1.5;
 }
 
+.intro-panel .demo-copy {
+  margin-top: 0;
+}
+
+.area-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  gap: var(--space-4);
+}
+
+.area-card {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: var(--space-3);
+  min-height: 210px;
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.area-card:hover:not(:disabled),
+.area-card.active {
+  border-color: var(--bronze);
+  background: rgba(224, 159, 62, 0.12);
+}
+
+.area-card.active {
+  box-shadow: inset 0 -6px 0 var(--red), 0 16px 34px rgba(0, 0, 0, 0.3);
+}
+
+.area-card strong {
+  color: var(--ink);
+  font-size: 1.16rem;
+}
+
+.area-card span:last-child {
+  line-height: 1.5;
+}
+
+.area-step {
+  width: fit-content;
+  border-bottom: 3px solid var(--red);
+  color: var(--bronze);
+  font-weight: 900;
+}
+
 .demo-actions {
+  width: min(100%, 320px);
   max-width: 320px;
 }
 
@@ -762,7 +827,7 @@ code {
 
   .mode-switcher {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .rail-status {
@@ -770,13 +835,15 @@ code {
   }
 
   .flow-grid,
-  .gate-console {
+  .gate-console,
+  .area-overview {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
   .workspace,
+  .intro-panel,
   .flow-header,
   .panel {
     padding: var(--space-4);
