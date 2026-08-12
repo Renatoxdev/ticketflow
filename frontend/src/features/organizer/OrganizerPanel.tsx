@@ -49,7 +49,7 @@ export function OrganizerPanel({session}: Props) {
   async function handlePublish(event: FormEvent) {
     event.preventDefault();
     if (!selected) {
-      setError("Escolha uma obra antes de montar o evento.");
+      setError("Escolha um filme ou série antes de criar a sessão.");
       return;
     }
 
@@ -58,7 +58,7 @@ export function OrganizerPanel({session}: Props) {
 
     const payload: CreateEventInput = {
       title: selected.title,
-      description: form.description || selected.description || `Evento baseado em ${selected.title}.`,
+      description: form.description || selected.description || `Sessão baseada em ${selected.title}.`,
       imageUrl: selected.imageUrl,
       startsAt: new Date(form.startsAt).toISOString(),
       venue: form.venue,
@@ -71,7 +71,7 @@ export function OrganizerPanel({session}: Props) {
     try {
       setPublishedEvent(await createEvent(session, payload));
     } catch (publishError) {
-      setError(publishError instanceof Error ? publishError.message : "Erro ao publicar evento.");
+      setError(publishError instanceof Error ? publishError.message : "Erro ao publicar sessão.");
     } finally {
       setSaving(false);
     }
@@ -81,13 +81,13 @@ export function OrganizerPanel({session}: Props) {
     <div className="flow-grid organizer-grid">
       <header className="flow-header">
         <p className="section-label">Organizador</p>
-        <h2>Criar evento</h2>
+        <h2>Criar sessão</h2>
       </header>
 
       <section className="panel">
         <form className="inline-form" onSubmit={handleSearch}>
           <label>
-            Buscar título
+            Buscar filme ou série
             <input value={query} onChange={(event) => setQuery(event.target.value)} minLength={2} required />
           </label>
           <button disabled={loading} type="submit">
@@ -101,7 +101,7 @@ export function OrganizerPanel({session}: Props) {
           {!loading && items.length === 0 && (
             <div className="empty-state">
               <strong>Comece pela busca</strong>
-              <span>Busque um título para preencher pôster, nome e descrição inicial.</span>
+              <span>Busque no catálogo para preencher pôster, nome e sinopse inicial.</span>
             </div>
           )}
 
@@ -128,7 +128,7 @@ export function OrganizerPanel({session}: Props) {
             <div className="selected-media">
               {selected.imageUrl ? <img alt="" src={selected.imageUrl} /> : <div className="image-fallback">Sem imagem</div>}
               <div>
-                <p className="section-label">Base do evento</p>
+                <p className="section-label">Base da sessão</p>
                 <h3>{selected.title}</h3>
                 <p>{selected.description ?? "Revise os dados antes de publicar."}</p>
               </div>
@@ -145,11 +145,11 @@ export function OrganizerPanel({session}: Props) {
                 />
               </label>
               <label>
-                Onde acontece
+                Sala ou cinema
                 <input value={form.venue} onChange={(event) => setForm({...form, venue: event.target.value})} required />
               </label>
               <label className="full-field">
-                Descrição do evento
+                Descrição da sessão
                 <textarea
                   value={form.description}
                   onChange={(event) => setForm({...form, description: event.target.value})}
@@ -179,18 +179,18 @@ export function OrganizerPanel({session}: Props) {
                 />
               </label>
               <button disabled={saving} type="submit">
-                {saving ? "Publicando" : "Publicar evento"}
+                {saving ? "Publicando" : "Publicar sessão"}
               </button>
             </form>
 
             {publishedEvent && (
-              <p className="feedback success">Evento publicado: {publishedEvent.title}.</p>
+              <p className="feedback success">Sessão publicada: {publishedEvent.title}.</p>
             )}
           </>
         ) : (
           <div className="empty-state tall">
             <strong>Escolha um título para começar</strong>
-            <span>Depois você ajusta data, local, preço e descrição antes de publicar.</span>
+            <span>Depois você ajusta data, sala, preço e descrição antes de publicar.</span>
           </div>
         )}
       </section>

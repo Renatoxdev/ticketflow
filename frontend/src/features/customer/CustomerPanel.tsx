@@ -28,7 +28,7 @@ export function CustomerPanel({session}: Props) {
       setEvents(result);
       setSelectedEvent((current) => current ?? result[0] ?? null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Erro ao carregar eventos.");
+      setError(loadError instanceof Error ? loadError.message : "Erro ao carregar sessões.");
     } finally {
       setLoading(false);
     }
@@ -106,12 +106,12 @@ export function CustomerPanel({session}: Props) {
     <div className="flow-grid customer-grid">
       <header className="flow-header">
         <p className="section-label">Cliente</p>
-        <h2>Escolha um evento</h2>
+        <h2>Escolha seu filme</h2>
       </header>
 
       <section className="panel customer-showcase">
         <div className="panel-title-row">
-          <h3>Eventos disponíveis</h3>
+          <h3>Em cartaz</h3>
           <button className="ghost-button" disabled={loading} onClick={loadEvents} type="button">
             {loading ? "Atualizando" : "Atualizar"}
           </button>
@@ -122,8 +122,8 @@ export function CustomerPanel({session}: Props) {
         <div className="poster-grid">
           {!loading && events.length === 0 && (
             <div className="empty-state">
-              <strong>Nenhum evento disponível</strong>
-              <span>Quando houver eventos publicados, eles aparecem aqui.</span>
+              <strong>Nenhuma sessão disponível</strong>
+              <span>Quando houver sessões publicadas, elas aparecem aqui.</span>
             </div>
           )}
 
@@ -134,7 +134,7 @@ export function CustomerPanel({session}: Props) {
               onClick={() => selectEvent(event)}
               type="button"
             >
-              {event.imageUrl ? <img alt="" src={event.imageUrl} /> : <span className="poster-fallback">Evento</span>}
+              {event.imageUrl ? <img alt="" src={event.imageUrl} /> : <span className="poster-fallback">Filme</span>}
               <span className="poster-overlay">
                 <strong>{event.title}</strong>
                 <small>{new Date(event.startsAt).toLocaleDateString("pt-BR")}</small>
@@ -148,14 +148,14 @@ export function CustomerPanel({session}: Props) {
         {selectedEvent ? (
           <>
             <div className="checkout-summary">
-              {selectedEvent.imageUrl ? <img alt="" src={selectedEvent.imageUrl} /> : <div className="image-fallback">Evento</div>}
+              {selectedEvent.imageUrl ? <img alt="" src={selectedEvent.imageUrl} /> : <div className="image-fallback">Filme</div>}
               <div>
-                <p className="section-label">Detalhes do evento</p>
+                <p className="section-label">Detalhes da sessão</p>
                 <h3>{selectedEvent.title}</h3>
                 <p>{selectedEvent.description}</p>
                 <dl>
                   <div>
-                    <dt>Onde</dt>
+                    <dt>Sala</dt>
                     <dd>{selectedEvent.venue}</dd>
                   </div>
                   <div>
@@ -184,7 +184,7 @@ export function CustomerPanel({session}: Props) {
                 <div className="payment-details">
                   <p className="section-label">Pagamento simulado</p>
                   <h3>Use este código para simular o PIX</h3>
-                  <p>Depois de confirmar, o ingresso será emitido e a capacidade do evento será atualizada.</p>
+                  <p>Depois de confirmar, o ingresso será emitido e a ocupação da sessão será atualizada.</p>
                   <code>{buildPaymentCode(selectedEvent)}</code>
                   <button className="ghost-button" onClick={copyPaymentCode} type="button">
                     {paymentCopyStatus === "copied" ? "Código copiado" : "Copiar código PIX"}
@@ -245,7 +245,7 @@ export function CustomerPanel({session}: Props) {
           </>
         ) : (
           <div className="empty-state tall">
-            <strong>Escolha um evento</strong>
+            <strong>Escolha um filme</strong>
             <span>Os detalhes aparecem aqui antes do pagamento.</span>
           </div>
         )}

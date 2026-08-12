@@ -1,33 +1,33 @@
 # TicketFlow
 
-TicketFlow é uma plataforma de eventos e ingressos desenvolvida para o Desafio Elite Dev da Verzel.
+TicketFlow é uma plataforma de sessões de cinema e ingressos desenvolvida para o Desafio Elite Dev da Verzel.
 
-A aplicação cobre a jornada principal de um produto de bilheteria online: criação de eventos, vitrine para clientes, pagamento simulado, emissão de ingresso com QR Code e validação na portaria.
+A aplicação cobre a jornada principal de uma bilheteria online para filmes e séries: criação de sessões a partir de um catálogo externo, vitrine com pôsteres, pagamento simulado, emissão de ingresso com QR Code e validação na portaria.
 
 ## Funcionalidades
 
-- Busca de títulos em catálogo externo usando TVMaze.
-- Publicação de eventos com título, descrição, pôster, data, local, capacidade e preço.
-- Vitrine de eventos com pôsteres clicáveis.
-- Exibição de ocupação do evento com ingressos vendidos e disponíveis.
+- Busca de filmes e séries em catálogo externo usando TVMaze.
+- Publicação de sessões com título, sinopse, pôster, data, sala, capacidade e preço.
+- Vitrine de filmes em cartaz com pôsteres clicáveis.
+- Exibição de ocupação da sessão com ingressos vendidos e disponíveis.
 - Pagamento simulado antes da emissão do ingresso.
 - Emissão de ingresso com token público e QR Code.
 - Cópia do código do ingresso para uso na portaria.
 - Validação de entrada pela portaria.
 - Bloqueio de reutilização de ingresso já usado.
-- Proteção contra venda acima da capacidade do evento.
+- Proteção contra venda acima da capacidade da sessão.
 
 ## Fluxos
 
 ```text
 Organizador
-  busca um título no TVMaze
-  revisa os dados do evento
-  publica o evento
+  busca um filme ou série no TVMaze
+  revisa os dados da sessão
+  publica a sessão
 
 Cliente
   navega pela vitrine de pôsteres
-  escolhe um evento
+  escolhe um filme
   simula o pagamento
   recebe o ingresso com QR Code
 
@@ -53,7 +53,7 @@ backend/
   app/
     auth/       autenticação, JWT e permissões
     db/         sessão, base e modelos do banco
-    events/     eventos publicados
+    events/     sessões publicadas
     external/   integração com TVMaze
     gate/       validação de entrada/check-in
     organizer/  rotas do organizador
@@ -74,7 +74,7 @@ frontend/
 
 ### Controle de capacidade
 
-A compra de ingresso roda dentro de uma transação no PostgreSQL. O evento é buscado com lock (`SELECT ... FOR UPDATE`), os ingressos vendidos são contados e o novo ingresso só é criado se ainda houver capacidade disponível.
+A compra de ingresso roda dentro de uma transação no PostgreSQL. A sessão é buscada com lock (`SELECT ... FOR UPDATE`), os ingressos vendidos são contados e o novo ingresso só é criado se ainda houver capacidade disponível.
 
 Essa regra evita overbooking em compras simultâneas.
 
@@ -100,9 +100,9 @@ backend/tests/test_concurrency_postgres.py
 
 ### API externa
 
-A integração com TVMaze serve para ajudar o organizador a preencher os dados iniciais do evento.
+A integração com TVMaze serve para ajudar o organizador a preencher os dados iniciais da sessão.
 
-Depois da publicação, os dados importantes ficam salvos no banco local. Eventos já publicados continuam funcionando mesmo se a API externa estiver indisponível.
+Depois da publicação, os dados importantes ficam salvos no banco local. Sessões já publicadas continuam funcionando mesmo se a API externa estiver indisponível.
 
 ## Interface
 
@@ -241,7 +241,7 @@ Não foram implementados:
 - microsserviços;
 - recuperação de senha.
 
-Essas funcionalidades podem entrar em evoluções futuras. Nesta versão, o foco ficou nos fluxos principais de evento, pagamento simulado, emissão de ingresso e validação na portaria.
+Essas funcionalidades podem entrar em evoluções futuras. Nesta versão, o foco ficou nos fluxos principais de sessão de cinema, pagamento simulado, emissão de ingresso e validação na portaria.
 
 ## Limites
 

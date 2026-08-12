@@ -54,7 +54,7 @@ export function App() {
       <div className="top-nav-zone">
         <header className="top-nav" aria-label="Navegação principal">
           <div className="top-brand">
-            <p className="brand-kicker">Eventos e ingressos</p>
+            <p className="brand-kicker">Cinema e ingressos</p>
             <h1>TicketFlow</h1>
           </div>
 

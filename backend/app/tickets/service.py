@@ -12,7 +12,7 @@ def buy_ticket(db: Session, event_id: UUID, customer: User) -> Ticket:
     with db.begin():
         event = db.scalar(select(Event).where(Event.id == event_id).with_for_update())
         if event is None or event.status != EventStatus.PUBLISHED:
-            raise NotFoundError("Este evento não está disponível para compra.")
+            raise NotFoundError("Esta sessão não está disponível para compra.")
 
         sold_tickets = db.scalar(
             select(func.count(Ticket.id)).where(

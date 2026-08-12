@@ -24,7 +24,7 @@ class ConflictError(AppError):
 
 class SoldOutError(AppError):
     status_code = 409
-    message = "Todos os ingressos deste evento já foram vendidos."
+    message = "Todos os ingressos desta sessão já foram vendidos."
 
 
 class ExternalIntegrationError(AppError):
