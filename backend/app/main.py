@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.auth.router import router as auth_router
 from app.core.config import settings
@@ -31,13 +34,18 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/")
-def root() -> dict[str, str]:
-    return {"app": "TicketFlow API", "status": "ok"}
-
-
 app.include_router(organizer_router)
 app.include_router(events_router)
 app.include_router(tickets_router)
 app.include_router(gate_router)
 app.include_router(auth_router)
+
+frontend_dist = Path(__file__).resolve().parents[2] / "frontend_dist"
+
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+else:
+
+    @app.get("/")
+    def root() -> dict[str, str]:
+        return {"app": "TicketFlow API", "status": "ok"}
