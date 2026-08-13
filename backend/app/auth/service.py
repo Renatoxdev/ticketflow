@@ -24,9 +24,9 @@ def register_user(db: Session, data: UserCreate) -> User:
     return user
 
 
-def login_user(db: Session, data: LoginRequest) -> str:
+def login_user(db: Session, data: LoginRequest) -> tuple[str, User]:
     user = db.scalar(select(User).where(User.email == data.email))
     if user is None or not verify_password(data.password, user.password_hash):
         raise ForbiddenError("Email ou senha inválidos.")
 
-    return create_access_token(str(user.id), {"role": user.role.value})
+    return create_access_token(str(user.id), {"role": user.role.value}), user

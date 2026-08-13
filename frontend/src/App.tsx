@@ -1,19 +1,23 @@
-import {useState} from "react";
+import {FormEvent, useEffect, useState} from "react";
+import {QRCodeSVG} from "qrcode.react";
 
 import {CustomerPanel} from "./features/customer/CustomerPanel";
 import {GatePanel} from "./features/gate/GatePanel";
 import {OrganizerPanel} from "./features/organizer/OrganizerPanel";
-import {registerUser} from "./lib/api";
-import type {AuthSession, UserRole} from "./lib/types";
+import {getSharedTicket, loginUser, registerUser} from "./lib/api";
+import type {AuthSession, TicketShare, UserRole} from "./lib/types";
 
 type Mode = "organizer" | "customer" | "gate";
 type View = Mode | "home";
+type AuthTab = "login" | "register";
+type RegisterRole = "CUSTOMER" | "ORGANIZER";
 
-const demoUsers: Record<UserRole, string> = {
-  ORGANIZER: "organizer@example.com",
-  CUSTOMER: "customer@example.com",
-  GATE_OPERATOR: "gate@example.com",
-};
+const demoAccounts: Array<{label: string; email: string; password: string; role: UserRole}> = [
+  {label: "Organizador demo", email: "admin@ticketflow.com", password: "admin", role: "ORGANIZER"},
+  {label: "Cliente user1", email: "user1@ticketflow.com", password: "user1", role: "CUSTOMER"},
+  {label: "Cliente user2", email: "user2@ticketflow.com", password: "user2", role: "CUSTOMER"},
+  {label: "Portaria demo", email: "portaria@ticketflow.com", password: "portaria", role: "GATE_OPERATOR"},
+];
 
 function roleForMode(mode: Mode): UserRole {
   if (mode === "organizer") return "ORGANIZER";
@@ -22,51 +26,96 @@ function roleForMode(mode: Mode): UserRole {
 }
 
 export function App() {
-  const [mode, setMode] = useState<Mode>("organizer");
   const [view, setView] = useState<View>("home");
-  const [sessions, setSessions] = useState<Partial<Record<UserRole, AuthSession>>>({});
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [sharedTicket, setSharedTicket] = useState<TicketShare | null>(null);
+  const [sharedError, setSharedError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
-  const currentRole = roleForMode(mode);
-  const currentSession = view === "home" ? null : (sessions[currentRole] ?? null);
+  useEffect(() => {
+    async function loadSharedTicket() {
+      const token = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("ticket");
+      if (!token) return;
 
-  async function enterDemo(targetMode = mode) {
-    const targetRole = roleForMode(targetMode);
-    setMode(targetMode);
-    setView(targetMode);
-    if (sessions[targetRole]) {
-      setAuthError(null);
-      return;
+      try {
+        setSharedTicket(await getSharedTicket(token));
+        setView("home");
+      } catch (error) {
+        setSharedError(error instanceof Error ? error.message : "Não foi possível carregar o ingresso compartilhado.");
+      }
     }
 
+    loadSharedTicket();
+  }, []);
+
+  function openView(nextView: View) {
+    setView(nextView);
+    setAuthError(null);
+    setSharedTicket(null);
+    setSharedError(null);
+  }
+
+  function handleAuthenticated(nextSession: AuthSession) {
+    setSession(nextSession);
+    setAuthError(null);
+
+    if (nextSession.role === "ORGANIZER") setView("organizer");
+    if (nextSession.role === "CUSTOMER") setView("customer");
+    if (nextSession.role === "GATE_OPERATOR") setView("gate");
+  }
+
+  async function loginDemo(email: string, password: string) {
     setAuthLoading(true);
     setAuthError(null);
 
     try {
-      const session = await registerUser(targetRole, demoUsers[targetRole]);
-      setSessions((current) => ({...current, [targetRole]: session}));
+      handleAuthenticated(await loginUser(email, password));
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Erro ao iniciar acesso de teste.");
+      setAuthError(error instanceof Error ? error.message : "Não foi possível entrar com este usuário.");
     } finally {
       setAuthLoading(false);
     }
   }
 
-  let panel = (
-    <DemoLogin
+  let panel = sharedTicket || sharedError ? (
+    <SharedTicketPanel error={sharedError} ticket={sharedTicket} />
+  ) : (
+    <HomePanel
       loading={authLoading}
       error={authError}
-      mode={mode}
-      role={currentRole}
-      onEnter={enterDemo}
-      onSelectMode={setMode}
+      session={session}
+      onLoginDemo={loginDemo}
+      onAuthenticated={handleAuthenticated}
+      onAuthError={setAuthError}
+      onAuthLoading={setAuthLoading}
     />
   );
 
-  if (currentSession && mode === "organizer") panel = <OrganizerPanel session={currentSession} />;
-  if (currentSession && mode === "customer") panel = <CustomerPanel session={currentSession} />;
-  if (currentSession && mode === "gate") panel = <GatePanel session={currentSession} />;
+  if (view !== "home") {
+    const expectedRole = roleForMode(view);
+    const canAccess = session?.role === expectedRole;
+
+    if (canAccess && view === "organizer") panel = <OrganizerPanel session={session} />;
+    if (canAccess && view === "customer") panel = <CustomerPanel session={session} />;
+    if (canAccess && view === "gate") panel = <GatePanel session={session} />;
+
+    if (!canAccess) {
+      panel = (
+        <AccessPanel
+          view={view}
+          expectedRole={expectedRole}
+          session={session}
+          loading={authLoading}
+          error={authError}
+          onLoginDemo={loginDemo}
+          onAuthenticated={handleAuthenticated}
+          onAuthError={setAuthError}
+          onAuthLoading={setAuthLoading}
+        />
+      );
+    }
+  }
 
   return (
     <>
@@ -78,23 +127,28 @@ export function App() {
           </div>
 
           <nav className="mode-switcher">
-            <button className={view === "home" ? "active" : ""} onClick={() => setView("home")} type="button">
+            <button className={view === "home" ? "active" : ""} onClick={() => openView("home")} type="button">
               Home
             </button>
-            <button className={view === "organizer" ? "active" : ""} onClick={() => enterDemo("organizer")} type="button">
+            <button className={view === "organizer" ? "active" : ""} onClick={() => openView("organizer")} type="button">
               Organizador
             </button>
-            <button className={view === "customer" ? "active" : ""} onClick={() => enterDemo("customer")} type="button">
+            <button className={view === "customer" ? "active" : ""} onClick={() => openView("customer")} type="button">
               Cliente
             </button>
-            <button className={view === "gate" ? "active" : ""} onClick={() => enterDemo("gate")} type="button">
+            <button className={view === "gate" ? "active" : ""} onClick={() => openView("gate")} type="button">
               Portaria
             </button>
           </nav>
 
           <div className="rail-status">
             <span className="status-dot" />
-            <span>{currentSession ? currentSession.email : "Escolha um perfil para testar"}</span>
+            <span>{session ? session.email : "Faça login para acessar as áreas"}</span>
+            {session && (
+              <button className="inline-logout" onClick={() => setSession(null)} type="button">
+                Sair
+              </button>
+            )}
           </div>
         </header>
       </div>
@@ -106,21 +160,45 @@ export function App() {
   );
 }
 
-function DemoLogin({
+function SharedTicketPanel({ticket, error}: {ticket: TicketShare | null; error: string | null}) {
+  return (
+    <div className="demo-login">
+      <section className="intro-panel compact-auth">
+        <p className="section-label">Ingresso compartilhado</p>
+        <h2>TicketFlow</h2>
+        <p className="demo-copy">
+          Este ingresso foi aberto por link de compartilhamento. A portaria ainda precisa validar o QR Code na entrada.
+        </p>
+      </section>
+
+      {error && <StateBlock title="Ingresso não encontrado" text={error} tone="danger" />}
+
+      {ticket && (
+        <section className="shared-ticket-card">
+          <div className="qr-box">
+            <QRCodeSVG value={ticket.qrPayload} size={176} />
+          </div>
+          <div>
+            <p className="section-label">Código seguro</p>
+            <h3>Assento {ticket.seatLabel ?? "-"}</h3>
+            <p>Status: {ticket.status}</p>
+            <code>{ticket.token}</code>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function HomePanel({
   loading,
   error,
-  mode,
-  role,
-  onEnter,
-  onSelectMode,
-}: {
-  loading: boolean;
-  error: string | null;
-  mode: Mode;
-  role: UserRole;
-  onEnter: (mode: Mode) => void;
-  onSelectMode: (mode: Mode) => void;
-}) {
+  session,
+  onLoginDemo,
+  onAuthenticated,
+  onAuthError,
+  onAuthLoading,
+}: AuthPanelProps & {session: AuthSession | null}) {
   return (
     <div className="demo-login">
       <section className="intro-panel">
@@ -128,37 +206,233 @@ function DemoLogin({
         <h2>Bilheteria online para sessões de cinema</h2>
         <p className="demo-copy">
           O TicketFlow simula uma plataforma de ingressos para filmes e séries. O organizador cria sessões usando
-          dados do TVMaze, o cliente compra um ingresso com pagamento simulado e a portaria valida o QR Code na entrada.
+          dados da TMDb, o cliente compra um ingresso com pagamento simulado e a portaria valida o QR Code na entrada.
         </p>
         <p className="demo-copy">
           O objetivo é demonstrar um fluxo completo de produto: integração externa, controle de capacidade, emissão de
           ingresso e check-in sem reutilização do mesmo código.
         </p>
+        {session && <StateBlock title="Usuário conectado" text={`${session.email} · ${roleLabel(session.role)}`} />}
       </section>
 
       <section className="area-overview" aria-label="Áreas da aplicação">
         {areaCards.map((area) => (
-          <button
-            className={`area-card ${mode === area.mode ? "active" : ""}`}
-            key={area.mode}
-            onClick={() => onSelectMode(area.mode)}
-            type="button"
-          >
+          <article className="area-card" key={area.mode}>
             <span className="area-step">{area.step}</span>
             <strong>{area.title}</strong>
             <span>{area.description}</span>
-          </button>
+          </article>
         ))}
       </section>
 
-      {error ? <StateBlock title="Entrada não concluída" text={error} tone="danger" /> : null}
+      <AuthCard
+        loading={loading}
+        error={error}
+        onLoginDemo={onLoginDemo}
+        onAuthenticated={onAuthenticated}
+        onAuthError={onAuthError}
+        onAuthLoading={onAuthLoading}
+      />
+    </div>
+  );
+}
 
-      <div className="demo-actions">
-        <button className="wide-action" disabled={loading} onClick={() => onEnter(mode)} type="button">
-          {loading ? "Entrando..." : `Entrar como ${roleLabel(role)}`}
+function AccessPanel({
+  view,
+  expectedRole,
+  session,
+  loading,
+  error,
+  onLoginDemo,
+  onAuthenticated,
+  onAuthError,
+  onAuthLoading,
+}: AuthPanelProps & {view: Mode; expectedRole: UserRole; session: AuthSession | null}) {
+  const currentRole = session ? roleLabel(session.role) : "nenhum usuário";
+  const text = session
+    ? `Você entrou como ${currentRole}. Esta área é restrita para ${roleLabel(expectedRole)}.`
+    : `Entre com um usuário ${roleLabel(expectedRole)} para acessar esta área.`;
+
+  return (
+    <div className="demo-login">
+      <section className="intro-panel compact-auth">
+        <p className="section-label">Acesso restrito</p>
+        <h2>{areaTitle(view)}</h2>
+        <p className="demo-copy">{text}</p>
+      </section>
+
+      <AuthCard
+        loading={loading}
+        error={error}
+        preferredRole={expectedRole}
+        onLoginDemo={onLoginDemo}
+        onAuthenticated={onAuthenticated}
+        onAuthError={onAuthError}
+        onAuthLoading={onAuthLoading}
+      />
+    </div>
+  );
+}
+
+type AuthPanelProps = {
+  loading: boolean;
+  error: string | null;
+  onLoginDemo: (email: string, password: string) => Promise<void>;
+  onAuthenticated: (session: AuthSession) => void;
+  onAuthError: (error: string | null) => void;
+  onAuthLoading: (loading: boolean) => void;
+};
+
+function AuthCard({
+  loading,
+  error,
+  preferredRole = "CUSTOMER",
+  onLoginDemo,
+  onAuthenticated,
+  onAuthError,
+  onAuthLoading,
+}: AuthPanelProps & {preferredRole?: UserRole}) {
+  const [tab, setTab] = useState<AuthTab>("login");
+  const [loginForm, setLoginForm] = useState({email: "", password: ""});
+  const [registerForm, setRegisterForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: (preferredRole === "GATE_OPERATOR" ? "CUSTOMER" : preferredRole) as RegisterRole,
+  });
+
+  async function submitLogin(event: FormEvent) {
+    event.preventDefault();
+    onAuthLoading(true);
+    onAuthError(null);
+
+    try {
+      onAuthenticated(await loginUser(loginForm.email, loginForm.password));
+    } catch (loginError) {
+      onAuthError(loginError instanceof Error ? loginError.message : "Não foi possível entrar.");
+    } finally {
+      onAuthLoading(false);
+    }
+  }
+
+  async function submitRegister(event: FormEvent) {
+    event.preventDefault();
+    onAuthLoading(true);
+    onAuthError(null);
+
+    try {
+      onAuthenticated(
+        await registerUser(
+          registerForm.role,
+          registerForm.email,
+          registerForm.password,
+          registerForm.name,
+        ),
+      );
+    } catch (registerError) {
+      onAuthError(registerError instanceof Error ? registerError.message : "Não foi possível criar usuário.");
+    } finally {
+      onAuthLoading(false);
+    }
+  }
+
+  return (
+    <section className="auth-card">
+      <div className="auth-tabs">
+        <button className={tab === "login" ? "active" : ""} onClick={() => setTab("login")} type="button">
+          Entrar
+        </button>
+        <button className={tab === "register" ? "active" : ""} onClick={() => setTab("register")} type="button">
+          Criar conta
         </button>
       </div>
-    </div>
+
+      {tab === "login" ? (
+        <form className="auth-form" onSubmit={submitLogin}>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              onChange={(event) => setLoginForm({...loginForm, email: event.target.value})}
+              placeholder="seu@email.com"
+              type="email"
+              value={loginForm.email}
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              autoComplete="current-password"
+              onChange={(event) => setLoginForm({...loginForm, password: event.target.value})}
+              placeholder="Sua senha"
+              type="password"
+              value={loginForm.password}
+            />
+          </label>
+          <button className="wide-action" disabled={loading} type="submit">
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
+      ) : (
+        <form className="auth-form" onSubmit={submitRegister}>
+          <label>
+            Nome
+            <input
+              autoComplete="name"
+              onChange={(event) => setRegisterForm({...registerForm, name: event.target.value})}
+              placeholder="Seu nome"
+              value={registerForm.name}
+            />
+          </label>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              onChange={(event) => setRegisterForm({...registerForm, email: event.target.value})}
+              placeholder="seu@email.com"
+              type="email"
+              value={registerForm.email}
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              autoComplete="new-password"
+              minLength={4}
+              onChange={(event) => setRegisterForm({...registerForm, password: event.target.value})}
+              placeholder="Mínimo 4 caracteres"
+              type="password"
+              value={registerForm.password}
+            />
+          </label>
+          <label>
+            Tipo de conta
+            <select
+              onChange={(event) => setRegisterForm({...registerForm, role: event.target.value as RegisterRole})}
+              value={registerForm.role}
+            >
+              <option value="CUSTOMER">Cliente</option>
+              <option value="ORGANIZER">Organizador</option>
+            </select>
+          </label>
+          <button className="wide-action" disabled={loading} type="submit">
+            {loading ? "Criando..." : "Criar conta"}
+          </button>
+        </form>
+      )}
+
+      {error ? <StateBlock title="Acesso não concluído" text={error} tone="danger" /> : null}
+
+      <div className="demo-account-list">
+        <p className="section-label">Usuários de teste</p>
+        {demoAccounts.map((account) => (
+          <button disabled={loading} key={account.email} onClick={() => onLoginDemo(account.email, account.password)} type="button">
+            <strong>{account.label}</strong>
+            <span>{account.email} / {account.password}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -187,6 +461,12 @@ function roleLabel(role: UserRole) {
   if (role === "ORGANIZER") return "organizador";
   if (role === "CUSTOMER") return "cliente";
   return "portaria";
+}
+
+function areaTitle(mode: Mode) {
+  if (mode === "organizer") return "Área do organizador";
+  if (mode === "customer") return "Área do cliente";
+  return "Área da portaria";
 }
 
 function StateBlock({title, text, tone = "neutral"}: {title: string; text: string; tone?: "neutral" | "danger"}) {

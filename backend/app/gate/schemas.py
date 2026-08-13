@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class CheckInRequest(BaseModel):
     token: str = Field(min_length=32, max_length=96)
+    event_id: UUID
 
 
 class CheckInRead(BaseModel):

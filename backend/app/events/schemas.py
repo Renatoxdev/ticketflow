@@ -33,6 +33,11 @@ class EventUpdate(BaseModel):
     price: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
 
 
+class SeatRead(BaseModel):
+    label: str
+    status: str
+
+
 class EventRead(EventBase):
     id: UUID
     organizer_id: UUID

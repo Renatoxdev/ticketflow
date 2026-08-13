@@ -41,6 +41,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -76,6 +77,7 @@ button:disabled {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -86,6 +88,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: 2px solid rgba(224, 159, 62, 0.35);
   outline-offset: 2px;
@@ -236,6 +239,14 @@ code {
   text-overflow: ellipsis;
 }
 
+.inline-logout {
+  border: 1px solid rgba(224, 159, 62, 0.36);
+  background: transparent;
+  color: var(--bronze);
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
 .status-dot {
   width: 9px;
   height: 9px;
@@ -333,6 +344,121 @@ code {
   max-width: 320px;
 }
 
+.compact-auth {
+  max-width: 760px;
+}
+
+.auth-card {
+  display: grid;
+  width: min(100%, 720px);
+  gap: var(--space-4);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.84);
+  padding: var(--space-5);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.auth-tabs button {
+  border-color: rgba(224, 159, 62, 0.32);
+  background: rgba(36, 36, 36, 0.84);
+  color: var(--muted);
+}
+
+.auth-tabs button.active {
+  border-color: var(--bronze);
+  background: var(--bronze);
+  color: var(--black);
+}
+
+.auth-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.auth-form label {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--bronze);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.auth-form label:has(select),
+.auth-form .wide-action {
+  grid-column: 1 / -1;
+}
+
+.auth-form input,
+.auth-form select {
+  width: 100%;
+  border: 1px solid rgba(224, 159, 62, 0.32);
+  border-radius: var(--radius-sm);
+  background: rgba(36, 36, 36, 0.78);
+  color: var(--ink);
+  padding: 13px 14px;
+  font: inherit;
+}
+
+.auth-form input:focus,
+.auth-form select:focus {
+  border-color: var(--bronze);
+  outline: 2px solid rgba(224, 159, 62, 0.22);
+}
+
+.demo-account-list {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid rgba(224, 159, 62, 0.18);
+  padding-top: var(--space-4);
+}
+
+.demo-account-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-color: rgba(224, 159, 62, 0.24);
+  background: rgba(36, 36, 36, 0.66);
+  color: var(--ink);
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.demo-account-list button:hover:not(:disabled) {
+  border-color: var(--bronze);
+  transform: translateY(-1px);
+}
+
+.demo-account-list span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.shared-ticket-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  width: min(100%, 720px);
+  gap: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.82);
+  padding: var(--space-5);
+}
+
+.shared-ticket-card code {
+  display: block;
+  margin-top: var(--space-3);
+}
+
 .flow-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.25fr);
@@ -374,6 +500,13 @@ code {
 .inline-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.filter-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(120px, 0.7fr)) auto;
   align-items: end;
   gap: var(--space-3);
 }
@@ -544,6 +677,46 @@ code {
   gap: var(--space-3);
 }
 
+.organizer-management {
+  grid-column: 1 / -1;
+}
+
+.management-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.management-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(36, 36, 36, 0.78);
+  padding: var(--space-3);
+}
+
+.management-row > div:first-child {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.management-row span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.management-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.danger-button {
+  border-color: rgba(255, 122, 112, 0.6);
+  color: var(--danger);
+}
+
 .event-form button {
   grid-column: 1 / -1;
 }
@@ -607,6 +780,66 @@ code {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--bronze), var(--red));
   transition: width 320ms ease;
+}
+
+.seat-section {
+  display: grid;
+  gap: var(--space-3);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+}
+
+.screen-line {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(224, 159, 62, 0.1);
+  padding: var(--space-2);
+  color: var(--bronze);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.seat-map {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(34px, 1fr)) 56px repeat(5, minmax(34px, 1fr));
+  gap: var(--space-2);
+}
+
+.seat-button {
+  min-height: 38px;
+  padding: 0;
+  border-color: var(--line);
+  background: rgba(36, 36, 36, 0.86);
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.seat-aisle {
+  pointer-events: none;
+}
+
+.seat-button.selected {
+  border-color: var(--bronze);
+  background: var(--bronze);
+  color: var(--black);
+}
+
+.seat-button.sold {
+  border-color: rgba(255, 122, 112, 0.28);
+  background: rgba(142, 6, 8, 0.35);
+  color: var(--danger);
+}
+
+.seat-button.reserved {
+  border-color: rgba(224, 159, 62, 0.36);
+  background: rgba(224, 159, 62, 0.16);
+  color: var(--muted);
+}
+
+.seat-state {
+  grid-column: 1 / -1;
 }
 
 .wide-action {
@@ -686,6 +919,68 @@ code {
   gap: var(--space-3);
 }
 
+.my-tickets-panel {
+  grid-column: 1 / -1;
+}
+
+.my-ticket-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+
+.my-ticket-card {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(36, 36, 36, 0.78);
+  padding: var(--space-3);
+}
+
+.my-ticket-card img,
+.my-ticket-card .image-fallback {
+  width: 86px;
+  min-height: 126px;
+  aspect-ratio: 2 / 3;
+  border: 2px solid var(--bronze);
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+.my-ticket-card > div:not(.image-fallback):not(.my-ticket-qr) {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.my-ticket-qr {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(224, 159, 62, 0.3);
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: var(--space-2);
+}
+
+.my-ticket-qr svg {
+  display: block;
+}
+
+.my-ticket-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.compact-button {
+  width: fit-content;
+  min-height: 34px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
 .copy-hint {
   color: var(--muted);
   font-size: 0.86rem;
@@ -708,6 +1003,35 @@ code {
 .gate-console form {
   display: grid;
   gap: var(--space-4);
+}
+
+.camera-reader {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.video-frame {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(36, 36, 36, 0.84);
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.video-frame video {
+  width: 100%;
+  height: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.camera-actions {
+  display: grid;
+  gap: var(--space-2);
 }
 
 .gate-result {
@@ -901,7 +1225,10 @@ code {
   }
 
   .mode-switcher,
+  .auth-form,
+  .shared-ticket-card,
   .inline-form,
+  .filter-form,
   .panel-title-row,
   .selected-media,
   .checkout-summary,
@@ -923,9 +1250,24 @@ code {
   }
 
   .rail-status {
+    flex-wrap: wrap;
     justify-content: center;
     text-align: center;
     font-size: 0.78rem;
+  }
+
+  .auth-card {
+    padding: var(--space-4);
+  }
+
+  .auth-tabs,
+  .demo-account-list button {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-account-list button {
+    display: grid;
+    justify-items: start;
   }
 
   .intro-panel {
@@ -976,6 +1318,35 @@ code {
 
   .event-row {
     grid-template-columns: 1fr;
+  }
+
+  .management-row,
+  .management-actions,
+  .my-ticket-card {
+    grid-template-columns: 1fr;
+  }
+
+  .my-ticket-card img,
+  .my-ticket-card .image-fallback {
+    width: min(100%, 180px);
+    margin: 0 auto;
+  }
+
+  .my-ticket-qr {
+    width: fit-content;
+    margin: 0 auto;
+  }
+
+  .management-actions {
+    display: grid;
+  }
+
+  .seat-map {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .seat-aisle {
+    display: none;
   }
 
   .qr-box {

@@ -1,154 +1,65 @@
 # TicketFlow
 
-TicketFlow é uma plataforma de sessões de cinema e ingressos desenvolvida para o Desafio Elite Dev da Verzel.
-
-A aplicação cobre a jornada principal de uma bilheteria online para filmes e séries: criação de sessões a partir de um catálogo externo, vitrine com pôsteres, pagamento simulado, emissão de ingresso com QR Code e validação na portaria.
+TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sistema permite que um organizador publique sessões a partir do catálogo da TMDb, que clientes escolham assentos e simulem pagamento Pix, e que a portaria valide ingressos por QR Code.
 
 ## Funcionalidades
 
-- Busca de filmes e séries em catálogo externo usando TVMaze.
-- Publicação de sessões com título, sinopse, pôster, data, sala, capacidade e preço.
-- Vitrine de filmes em cartaz com pôsteres clicáveis.
-- Exibição de ocupação da sessão com ingressos vendidos e disponíveis.
-- Pagamento simulado antes da emissão do ingresso.
-- Emissão de ingresso com token público e QR Code.
-- Cópia do código do ingresso para uso na portaria.
-- Validação de entrada pela portaria.
-- Bloqueio de reutilização de ingresso já usado.
-- Proteção contra venda acima da capacidade da sessão.
-
-## Fluxos
-
-```text
-Organizador
-  busca um filme ou série no TVMaze
-  revisa os dados da sessão
-  publica a sessão
-
-Cliente
-  navega pela vitrine de pôsteres
-  escolhe um filme
-  simula o pagamento
-  recebe o ingresso com QR Code
-
-Portaria
-  recebe o código do ingresso
-  valida a entrada
-  registra o check-in
-```
+- Cadastro e login de usuários.
+- Três perfis: organizador, cliente e portaria.
+- Busca de filmes na TMDb pelo backend.
+- Criação, edição, listagem e cancelamento de sessões pelo organizador.
+- Vitrine de sessões em cartaz com pôsteres, data, sala, preço e ocupação.
+- Busca e filtros por nome/sala, período e preço máximo.
+- Mapa de assentos com corredor central.
+- Reserva temporária do assento enquanto o pagamento Pix simulado está pendente.
+- Pagamento simulado com aprovação, recusa e nova tentativa.
+- Emissão de ingresso somente após pagamento aprovado.
+- Área "Meus ingressos" com dados do evento e QR Code.
+- Link compartilhável de ingresso por token público seguro.
+- Validação na portaria por câmera ou digitação manual.
+- Retornos de portaria para ingresso válido, inválido, já utilizado e evento errado.
+- Cancelamento de ingresso com devolução do assento ao estoque.
+- Proteção no backend e no banco contra venda duplicada e check-in duplicado.
 
 ## Stack
 
+- Frontend: React, TypeScript, Vite, qrcode.react e jsQR.
 - Backend: Python, FastAPI, SQLAlchemy, Alembic e Pydantic.
-- Frontend: React, TypeScript e Vite.
 - Banco de dados: PostgreSQL.
 - Autenticação: JWT.
-- Testes: pytest e ruff.
+- Testes: pytest, ruff e Playwright.
 - Ambiente local: Docker Compose.
 
-## Arquitetura
+## Estrutura
 
 ```text
 backend/
   app/
     auth/       autenticação, JWT e permissões
-    db/         sessão, base e modelos do banco
-    events/     sessões publicadas
-    external/   integração com TVMaze
-    gate/       validação de entrada/check-in
-    organizer/  rotas do organizador
-    tickets/    checkout, ingresso e QR Code
-  tests/
+    db/         modelos, sessão do banco e seed
+    events/     listagem, filtros e assentos
+    external/   integração com TMDb
+    gate/       validação de ingresso
+    organizer/  área do organizador
+    tickets/    pagamento, ingresso e compartilhamento
   alembic/
+  tests/
 
 frontend/
   src/
     features/
-      organizer/
       customer/
       gate/
+      organizer/
     lib/
+  tests/e2e/
 ```
 
-## Regras De Negócio
+## Como Rodar Localmente
 
-### Controle de capacidade
+### 1. Configurar variáveis de ambiente
 
-A compra de ingresso roda dentro de uma transação no PostgreSQL. A sessão é buscada com lock (`SELECT ... FOR UPDATE`), os ingressos vendidos são contados e o novo ingresso só é criado se ainda houver capacidade disponível.
-
-Essa regra evita overbooking em compras simultâneas.
-
-Arquivos principais:
-
-```text
-backend/app/tickets/service.py
-backend/tests/test_concurrency_postgres.py
-```
-
-### Validação de ingresso
-
-Cada ingresso tem um token público aleatório. Esse token é usado no QR Code apresentado à portaria.
-
-Quando o ingresso é validado, seu status muda de `VALID` para `USED`. O banco também possui uma constraint única para impedir dois check-ins no mesmo ingresso.
-
-Arquivos principais:
-
-```text
-backend/app/gate/service.py
-backend/tests/test_concurrency_postgres.py
-```
-
-### API externa
-
-A integração com TVMaze serve para ajudar o organizador a preencher os dados iniciais da sessão.
-
-Depois da publicação, os dados importantes ficam salvos no banco local. Sessões já publicadas continuam funcionando mesmo se a API externa estiver indisponível.
-
-## Interface
-
-A interface usa a identidade visual do TicketFlow:
-
-- fundo escuro;
-- detalhes em bronze e vermelho;
-- fonte Limelight nos títulos;
-- fonte Poppins para leitura;
-- pôsteres grandes na vitrine;
-- animações discretas;
-- telas separadas para organizador, cliente e portaria.
-
-## Como Rodar
-
-### 1. Subir os containers
-
-```bash
-docker compose up --build
-```
-
-Serviços:
-
-- Backend: `http://localhost:8000`
-- Frontend: `http://localhost:5173`
-- PostgreSQL: `localhost:5432`
-
-### 2. Rodar as migrations
-
-Em outro terminal:
-
-```bash
-docker compose exec backend alembic upgrade head
-```
-
-### 3. Abrir a aplicação
-
-```text
-http://localhost:5173
-```
-
-A interface possui acessos demo para os três perfis: organizador, cliente e portaria.
-
-## Variáveis De Ambiente
-
-Backend:
+Crie `backend/.env` com base em `backend/.env.example`:
 
 ```env
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/verzel_events
@@ -156,28 +67,133 @@ JWT_SECRET=change-me-in-development
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_MINUTES=60
 CORS_ORIGINS=["http://localhost:5173"]
+TMDB_API_KEY=sua_chave_da_tmdb
 ```
 
-Frontend:
+Crie `frontend/.env` com base em `frontend/.env.example`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Arquivos de exemplo:
+### 2. Subir a aplicação
 
-```text
-backend/.env.example
-frontend/.env.example
+```bash
+docker compose up --build
 ```
 
-## Testes E Verificação
+Serviços locais:
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
+
+### 3. Rodar migrations e seed
+
+Em outro terminal:
+
+```bash
+docker compose exec backend alembic upgrade head
+docker compose exec backend python -m app.db.seed
+```
+
+O seed cria usuários de teste e uma sessão publicada com assentos disponíveis.
+
+## Usuários De Teste
+
+| Perfil | Email | Senha |
+| --- | --- | --- |
+| Organizador | `admin@ticketflow.com` | `admin` |
+| Cliente | `user1@ticketflow.com` | `user1` |
+| Cliente | `user2@ticketflow.com` | `user2` |
+| Portaria | `portaria@ticketflow.com` | `portaria` |
+
+## Fluxos Principais
+
+### Organizador
+
+1. Entrar como organizador.
+2. Buscar um filme na TMDb.
+3. Conferir título, sinopse e pôster.
+4. Definir data, sala, capacidade e preço.
+5. Publicar, editar ou cancelar sessões.
+
+### Cliente
+
+1. Entrar como cliente.
+2. Navegar pela vitrine de filmes.
+3. Filtrar sessões, se necessário.
+4. Escolher um assento disponível.
+5. Gerar pagamento Pix simulado.
+6. Aprovar ou recusar o pagamento.
+7. Receber ingresso com QR Code após aprovação.
+8. Ver ingressos emitidos em "Meus ingressos".
+9. Copiar link compartilhável do ingresso.
+
+### Portaria
+
+1. Entrar como portaria.
+2. Selecionar a sessão da entrada.
+3. Ler o QR Code pela câmera ou digitar o token.
+4. Validar a entrada.
+5. Receber retorno claro: válido, inválido, já utilizado ou evento errado.
+
+## Regras Importantes
+
+### Reserva temporária
+
+Ao gerar o pagamento Pix simulado, o assento fica reservado por 15 minutos. Enquanto a cobrança está pendente, outro cliente não consegue escolher o mesmo assento. Se o pagamento for recusado ou expirar, o assento volta a ficar disponível.
+
+### Concorrência
+
+A criação do pagamento e a emissão do ingresso usam transação no PostgreSQL. O backend bloqueia a sessão durante a checagem de disponibilidade e o banco possui índices únicos para impedir duplicidade de assentos confirmados e reservas pendentes.
+
+### Ingresso seguro
+
+O QR Code não usa ID sequencial. Cada ingresso recebe um token público aleatório, gerado no backend. A portaria valida esse token no banco e registra o check-in.
+
+### Validação única
+
+Depois que um ingresso é validado, seu status muda para `USED`. Uma segunda tentativa retorna "já utilizado". O banco também possui constraint única para impedir dois check-ins simultâneos do mesmo ingresso.
+
+## Endpoints Principais
+
+Autenticação:
+
+- `POST /auth/register`
+- `POST /auth/login`
+
+Organizador:
+
+- `GET /organizer/external-catalog?q=matrix`
+- `GET /organizer/events`
+- `POST /organizer/events`
+- `PATCH /organizer/events/{event_id}`
+- `POST /organizer/events/{event_id}/cancel`
+
+Cliente:
+
+- `GET /events`
+- `GET /events/{event_id}/seats`
+- `POST /payments/pix`
+- `POST /payments/{payment_id}/approve`
+- `POST /payments/{payment_id}/fail`
+- `GET /customer/tickets`
+- `GET /customer/tickets/{ticket_id}/qr`
+- `POST /customer/tickets/{ticket_id}/cancel`
+- `GET /tickets/share/{token}`
+
+Portaria:
+
+- `POST /gate/check-ins`
+
+## Testes
 
 Backend:
 
 ```bash
 cd backend
-python -m pytest -p no:cacheprovider
+python -m pytest -p no:cacheprovider -q
 python -m ruff check app tests
 ```
 
@@ -189,64 +205,49 @@ npm install
 npm run build
 ```
 
-Resultado da última verificação:
+E2E com a aplicação local rodando:
 
-```text
-8 passed
-All checks passed!
-npm run build OK
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:e2e
 ```
 
-## Endpoints Principais
+Resultado da última verificação local:
 
-Autenticação:
+```text
+12 passed
+All checks passed!
+npm run build OK
+docker build OK
+```
 
-- `POST /auth/register`
-- `POST /auth/login`
+## Deploy
 
-Organizador:
+O projeto possui um `Dockerfile` na raiz para publicar frontend e backend em um único serviço. O build gera o frontend com Vite, copia os arquivos finais para o backend FastAPI e serve tudo pelo mesmo domínio.
 
-- `GET /organizer/external-catalog?q=lost`
-- `POST /organizer/events`
+Variáveis necessárias em produção:
 
-Cliente:
+```env
+DATABASE_URL=internal_database_url_do_postgres
+JWT_SECRET=uma_string_secreta_forte
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_MINUTES=60
+CORS_ORIGINS=["https://sua-url.onrender.com"]
+TMDB_API_KEY=sua_chave_da_tmdb
+```
 
-- `GET /events`
-- `POST /checkout`
-- `GET /customer/tickets/{ticket_id}/qr`
-- `GET /tickets/share/{token}`
+Comando iniciado pelo container:
 
-Portaria:
+```bash
+alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
 
-- `POST /gate/check-ins`
+## Limites Da Versão
 
-## Fora Do Escopo Desta Versão
-
-Não foram implementados:
-
-- pagamento real;
-- gateway de pagamento;
-- reembolso;
-- cupons;
-- email;
-- notificações;
-- marketplace;
-- várias moedas;
-- carrinho;
-- compra de vários ingressos por pedido;
-- reserva com tempo de expiração;
-- painel administrativo genérico;
-- filas;
-- Redis;
-- microsserviços;
-- recuperação de senha.
-
-Essas funcionalidades podem entrar em evoluções futuras. Nesta versão, o foco ficou nos fluxos principais de sessão de cinema, pagamento simulado, emissão de ingresso e validação na portaria.
-
-## Limites
-
-- Cada checkout compra 1 ingresso.
-- O pagamento é simulado.
-- Quem tem o token consegue apresentar o ingresso.
-- A validação do ingresso depende do backend online.
-- A interface usa usuários demo para facilitar o teste local.
+- O pagamento é simulado; não há transação financeira real.
+- Não há integração com PSP real ou sandbox de provedor de pagamento.
+- O fluxo usa mapa de assentos; não há modo separado por setor/quantidade.
+- O mapa de assentos atualiza automaticamente por consulta periódica, não por WebSocket.
+- Quem possui o link compartilhável consegue visualizar o ingresso.
+- Não há recuperação de senha, envio de e-mail, nota fiscal, revenda ou aplicativo nativo.

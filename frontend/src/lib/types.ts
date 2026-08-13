@@ -1,10 +1,12 @@
 export type UserRole = "ORGANIZER" | "CUSTOMER" | "GATE_OPERATOR";
 
-export type EventStatus = "DRAFT" | "PUBLISHED";
+export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED";
 
-export type TicketStatus = "VALID" | "USED";
+export type TicketStatus = "VALID" | "USED" | "CANCELLED";
 
 export type CheckoutStatus = "CONFIRMED";
+
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED";
 
 export interface AuthSession {
   accessToken: string;
@@ -56,16 +58,38 @@ export interface CreateEventInput {
   externalId: string | null;
 }
 
+export type UpdateEventInput = Partial<Pick<CreateEventInput, "title" | "description" | "imageUrl" | "startsAt" | "venue" | "capacity" | "price">>;
+
+export interface Seat {
+  label: string;
+  status: "available" | "reserved" | "sold" | string;
+}
+
 export interface Ticket {
   id: string;
   eventId: string;
   customerId: string;
   publicToken: string;
+  seatLabel: string | null;
   status: TicketStatus;
   checkoutStatus: CheckoutStatus;
   checkoutReference: string;
   paidAmount: string;
   checkoutConfirmedAt: string;
+  createdAt: string;
+}
+
+export interface Payment {
+  id: string;
+  eventId: string;
+  customerId: string;
+  ticketId: string | null;
+  seatLabel: string;
+  amount: string;
+  pixCode: string;
+  qrPayload: string;
+  status: PaymentStatus;
+  expiresAt: string;
   createdAt: string;
 }
 
@@ -75,9 +99,24 @@ export interface TicketShare {
   token: string;
   qrPayload: string;
   status: TicketStatus;
+  seatLabel: string | null;
 }
 
-export type GateStatus = "VALID" | "ALREADY_USED" | "INVALID" | "NOT_AVAILABLE" | string;
+export interface CustomerTicket {
+  ticketId: string;
+  eventId: string;
+  title: string;
+  imageUrl: string | null;
+  startsAt: string;
+  venue: string;
+  seatLabel: string | null;
+  token: string;
+  qrPayload: string;
+  status: TicketStatus;
+  paidAmount: string;
+}
+
+export type GateStatus = "VALID" | "ALREADY_USED" | "INVALID" | "NOT_AVAILABLE" | "WRONG_EVENT" | string;
 
 export interface GateValidationResult {
   status: GateStatus;

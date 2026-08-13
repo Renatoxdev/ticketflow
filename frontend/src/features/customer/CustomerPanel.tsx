@@ -1,8 +1,17 @@
-import {FormEvent, useEffect, useState} from "react";
+import {Fragment, FormEvent, useEffect, useState} from "react";
 import {QRCodeSVG} from "qrcode.react";
 
-import {checkout, getTicketShare, listEvents} from "../../lib/api";
-import type {AuthSession, Event, TicketShare} from "../../lib/types";
+import {
+  approvePixPayment,
+  cancelTicket,
+  createPixPayment,
+  failPixPayment,
+  getTicketShare,
+  listCustomerTickets,
+  listEvents,
+  listSeats,
+} from "../../lib/api";
+import type {AuthSession, CustomerTicket, Event, Payment, Seat, TicketShare} from "../../lib/types";
 
 type Props = {
   session: AuthSession;
@@ -11,22 +20,35 @@ type Props = {
 export function CustomerPanel({session}: Props) {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [seats, setSeats] = useState<Seat[]>([]);
+  const [selectedSeat, setSelectedSeat] = useState("");
+  const [filters, setFilters] = useState({q: "", dateFrom: "", dateTo: "", maxPrice: ""});
   const [ticket, setTicket] = useState<TicketShare | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [myTickets, setMyTickets] = useState<CustomerTicket[]>([]);
   const [loading, setLoading] = useState(false);
+  const [seatLoading, setSeatLoading] = useState(false);
   const [buying, setBuying] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<"details" | "payment" | "ticket">("details");
   const [paymentCopyStatus, setPaymentCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [paymentFailure, setPaymentFailure] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  async function loadEvents() {
+  async function loadEvents(event?: {preventDefault: () => void}) {
+    event?.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const result = await listEvents();
+      const result = await listEvents({
+        q: filters.q,
+        date_from: filters.dateFrom ? new Date(filters.dateFrom).toISOString() : "",
+        date_to: filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`).toISOString() : "",
+        max_price: filters.maxPrice,
+      });
       setEvents(result);
-      setSelectedEvent((current) => current ?? result[0] ?? null);
+      setSelectedEvent((current) => (current && result.some((event) => event.id === current.id) ? current : (result[0] ?? null)));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Erro ao carregar sessões.");
     } finally {
@@ -36,23 +58,114 @@ export function CustomerPanel({session}: Props) {
 
   useEffect(() => {
     loadEvents();
+    loadMyTickets();
   }, []);
+
+  async function loadMyTickets() {
+    try {
+      setMyTickets(await listCustomerTickets(session));
+    } catch {
+      setMyTickets([]);
+    }
+  }
 
   function selectEvent(event: Event) {
     setSelectedEvent(event);
+    setSeats([]);
+    setSelectedSeat("");
     setTicket(null);
+    setPayment(null);
     setCheckoutStep("details");
     setCopyStatus("idle");
     setPaymentCopyStatus("idle");
+    setPaymentFailure(null);
   }
 
-  function handleStartPayment(event: FormEvent) {
+  async function loadSeats(event: Event) {
+    setSeatLoading(true);
+    try {
+      const result = await listSeats(event.id);
+      setSeats(result);
+      setSelectedSeat((current) => (result.some((seat) => seat.label === current && seat.status === "available") ? current : ""));
+      setError(null);
+    } catch (seatError) {
+      setError(seatError instanceof Error ? seatError.message : "Erro ao carregar assentos.");
+      setSeats([]);
+      setSelectedSeat("");
+    } finally {
+      setSeatLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (selectedEvent) {
+      loadSeats(selectedEvent);
+      return;
+    }
+
+    setSeats([]);
+    setSelectedSeat("");
+  }, [selectedEvent?.id]);
+
+  useEffect(() => {
+    if (!selectedEvent || checkoutStep !== "details") return;
+
+    const interval = window.setInterval(() => {
+      loadSeats(selectedEvent);
+    }, 8000);
+
+    return () => window.clearInterval(interval);
+  }, [selectedEvent?.id, checkoutStep]);
+
+  async function startPayment() {
+    if (!selectedEvent || !selectedSeat) {
+      setError("Escolha um assento antes do pagamento.");
+      return;
+    }
+
+    setBuying(true);
+    setTicket(null);
+    setPayment(null);
+    setError(null);
+    setPaymentFailure(null);
+    setPaymentCopyStatus("idle");
+
+    try {
+      const nextPayment = await createPixPayment(session, selectedEvent.id, selectedSeat);
+      setPayment(nextPayment);
+      setCheckoutStep("payment");
+      await loadSeats(selectedEvent);
+    } catch (paymentError) {
+      setError(paymentError instanceof Error ? paymentError.message : "Erro ao gerar cobrança Pix.");
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  async function handleStartPayment(event: FormEvent) {
     event.preventDefault();
-    if (!selectedEvent) return;
+    await startPayment();
+  }
+
+  async function handleRetryPayment() {
+    await startPayment();
+  }
+
+  async function handleRejectPayment() {
+    if (!payment) return;
+
+    setBuying(true);
     setTicket(null);
     setError(null);
-    setPaymentCopyStatus("idle");
-    setCheckoutStep("payment");
+
+    try {
+      setPayment(await failPixPayment(session, payment.id));
+      setPaymentFailure("Pagamento recusado na simulação. Nenhum ingresso foi emitido.");
+    } catch (paymentError) {
+      setError(paymentError instanceof Error ? paymentError.message : "Erro ao recusar pagamento.");
+    } finally {
+      setBuying(false);
+    }
   }
 
   async function handleConfirmPayment(event: FormEvent) {
@@ -65,12 +178,51 @@ export function CustomerPanel({session}: Props) {
     setCopyStatus("idle");
 
     try {
-      const purchased = await checkout(session, selectedEvent.id);
+      if (!payment) {
+        throw new Error("Gere uma cobrança Pix antes de confirmar o pagamento.");
+      }
+
+      const purchased = await approvePixPayment(session, payment.id);
       setTicket(await getTicketShare(session, purchased.id));
       setCheckoutStep("ticket");
-      loadEvents();
+      setPayment(null);
+      await loadEvents();
+      await loadSeats(selectedEvent);
+      await loadMyTickets();
     } catch (checkoutError) {
       setError(checkoutError instanceof Error ? checkoutError.message : "Erro ao emitir ingresso.");
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  async function handleBuyAnother(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedEvent) return;
+
+    setTicket(null);
+    setPayment(null);
+    setCheckoutStep("details");
+    setSelectedSeat("");
+    await loadSeats(selectedEvent);
+  }
+
+  async function handleCancelTicket() {
+    if (!ticket || !selectedEvent) return;
+
+    setBuying(true);
+    setError(null);
+
+    try {
+      await cancelTicket(session, ticket.ticketId);
+      setTicket(null);
+      setCheckoutStep("details");
+      setSelectedSeat("");
+      await loadEvents();
+      await loadSeats(selectedEvent);
+      await loadMyTickets();
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "Erro ao cancelar ingresso.");
     } finally {
       setBuying(false);
     }
@@ -80,7 +232,7 @@ export function CustomerPanel({session}: Props) {
     if (!selectedEvent) return;
 
     try {
-      await copyTextToClipboard(buildPaymentCode(selectedEvent));
+      await copyTextToClipboard(payment?.pixCode ?? "");
       setPaymentCopyStatus("copied");
     } catch {
       setPaymentCopyStatus("failed");
@@ -94,6 +246,17 @@ export function CustomerPanel({session}: Props) {
 
     try {
       await copyTextToClipboard(ticket.token);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+
+    window.setTimeout(() => setCopyStatus("idle"), 2200);
+  }
+
+  async function copyTicketLink(token: string) {
+    try {
+      await copyTextToClipboard(buildShareLink(token));
       setCopyStatus("copied");
     } catch {
       setCopyStatus("failed");
@@ -116,6 +279,28 @@ export function CustomerPanel({session}: Props) {
             {loading ? "Atualizando" : "Atualizar"}
           </button>
         </div>
+
+        <form className="filter-form" onSubmit={loadEvents}>
+          <label>
+            Buscar
+            <input value={filters.q} onChange={(event) => setFilters({...filters, q: event.target.value})} placeholder="Filme ou sala" />
+          </label>
+          <label>
+            De
+            <input value={filters.dateFrom} onChange={(event) => setFilters({...filters, dateFrom: event.target.value})} type="date" />
+          </label>
+          <label>
+            Até
+            <input value={filters.dateTo} onChange={(event) => setFilters({...filters, dateTo: event.target.value})} type="date" />
+          </label>
+          <label>
+            Preço máximo
+            <input min={0} step="0.01" value={filters.maxPrice} onChange={(event) => setFilters({...filters, maxPrice: event.target.value})} type="number" />
+          </label>
+          <button disabled={loading} type="submit">
+            Filtrar
+          </button>
+        </form>
 
         {error && <p className="feedback danger">{error}</p>}
 
@@ -168,9 +353,52 @@ export function CustomerPanel({session}: Props) {
             </div>
 
             {checkoutStep === "details" && (
+              <div className="seat-section">
+                <div>
+                  <p className="section-label">Mapa de assentos</p>
+                  <h3>Escolha seu lugar</h3>
+                </div>
+                <div className="screen-line">Tela</div>
+                <div className="seat-map">
+                  {seatLoading && (
+                    <div className="empty-state seat-state">
+                      <strong>Carregando assentos</strong>
+                      <span>Estamos conferindo os lugares disponíveis desta sessão.</span>
+                    </div>
+                  )}
+
+                  {!seatLoading && seats.length === 0 && (
+                    <div className="empty-state seat-state">
+                      <strong>Nenhum assento disponível</strong>
+                      <span>Atualize a sessão ou escolha outro filme.</span>
+                    </div>
+                  )}
+
+                  {seats.map((seat) => (
+                    <Fragment key={seat.label}>
+                      <button
+                        className={`seat-button ${seat.status === "sold" ? "sold" : ""} ${seat.status === "reserved" ? "reserved" : ""} ${selectedSeat === seat.label ? "selected" : ""}`}
+                        disabled={seat.status !== "available"}
+                        onClick={() => setSelectedSeat(seat.label)}
+                        type="button"
+                      >
+                        {seat.label}
+                      </button>
+                      {isBeforeCenterAisle(seat.label) && <span className="seat-aisle" aria-hidden="true" />}
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {checkoutStep === "details" && (
               <form onSubmit={handleStartPayment}>
-                <button className="wide-action" disabled={selectedEvent.capacity - selectedEvent.soldCount <= 0} type="submit">
-                  Ir para pagamento
+                <button
+                  className="wide-action"
+                  disabled={buying || seatLoading || !selectedSeat || selectedEvent.capacity - selectedEvent.soldCount <= 0}
+                  type="submit"
+                >
+                  {buying ? "Gerando pagamento" : selectedSeat ? `Ir para pagamento · Assento ${selectedSeat}` : "Escolha um assento"}
                 </button>
               </form>
             )}
@@ -178,28 +406,38 @@ export function CustomerPanel({session}: Props) {
             {checkoutStep === "payment" && (
               <div className="payment-surface">
                 <div className="qr-box payment-qr">
-                  <QRCodeSVG value={buildPaymentCode(selectedEvent)} size={168} />
+                  <QRCodeSVG value={payment?.qrPayload ?? ""} size={168} />
                 </div>
 
                 <div className="payment-details">
                   <p className="section-label">Pagamento simulado</p>
-                  <h3>Use este código para simular o PIX</h3>
-                  <p>Depois de confirmar, o ingresso será emitido e a ocupação da sessão será atualizada.</p>
-                  <code>{buildPaymentCode(selectedEvent)}</code>
-                  <button className="ghost-button" onClick={copyPaymentCode} type="button">
-                    {paymentCopyStatus === "copied" ? "Código copiado" : "Copiar código PIX"}
+                  <h3>Use este código para simular o Pix</h3>
+                  <p>Depois de confirmar, o ingresso será emitido para o assento {payment?.seatLabel ?? selectedSeat}.</p>
+                  {payment?.status === "PENDING" && <p>Este assento fica reservado até {new Date(payment.expiresAt).toLocaleTimeString("pt-BR")}.</p>}
+                  <code>{payment?.pixCode}</code>
+                  <button className="ghost-button" disabled={!payment || buying} onClick={copyPaymentCode} type="button">
+                    {paymentCopyStatus === "copied" ? "Código copiado" : "Copiar código Pix"}
                   </button>
+                  <button className="ghost-button danger-button" disabled={!payment || buying || payment.status === "FAILED"} onClick={handleRejectPayment} type="button">
+                    Simular pagamento recusado
+                  </button>
+                  {payment?.status === "FAILED" && (
+                    <button className="ghost-button" disabled={buying} onClick={handleRetryPayment} type="button">
+                      Tentar pagamento novamente
+                    </button>
+                  )}
                   {paymentCopyStatus === "failed" && (
                     <p className="copy-hint danger">Seu navegador bloqueou a cópia. Selecione o código acima manualmente.</p>
                   )}
+                  {paymentFailure && <p className="feedback danger">{paymentFailure}</p>}
                 </div>
               </div>
             )}
 
             {checkoutStep === "payment" && (
               <form onSubmit={handleConfirmPayment}>
-                <button className="wide-action" disabled={buying} type="submit">
-                  {buying ? "Emitindo ingresso" : "Confirmar pagamento simulado"}
+                <button className="wide-action" disabled={buying || !payment || payment.status === "FAILED"} type="submit">
+                  {buying ? "Emitindo ingresso" : "Confirmar pagamento aprovado"}
                 </button>
               </form>
             )}
@@ -209,7 +447,7 @@ export function CustomerPanel({session}: Props) {
             )}
 
             {checkoutStep === "ticket" && (
-              <form onSubmit={handleStartPayment}>
+              <form onSubmit={handleBuyAnother}>
                 <button className="ghost-button" disabled={buying} type="submit">
                   Comprar outro ingresso
                 </button>
@@ -226,13 +464,19 @@ export function CustomerPanel({session}: Props) {
                   <div className="ticket-details">
                     <div className="ticket-heading">
                       <p className="section-label">Ingresso emitido</p>
-                      <h3>QR Code do ingresso</h3>
+                      <h3>QR Code do ingresso · Assento {ticket.seatLabel}</h3>
                     </div>
 
                     <div className="ticket-actions">
                       <code>{ticket.token}</code>
                       <button className="ghost-button" onClick={copyTicketCode} type="button">
                         {copyStatus === "copied" ? "Código copiado" : "Copiar código do ingresso"}
+                      </button>
+                      <button className="ghost-button" onClick={() => copyTicketLink(ticket.token)} type="button">
+                        Copiar link compartilhável
+                      </button>
+                      <button className="ghost-button danger-button" disabled={buying} onClick={handleCancelTicket} type="button">
+                        {buying ? "Cancelando" : "Cancelar ingresso"}
                       </button>
                       {copyStatus === "failed" && (
                         <p className="copy-hint danger">Seu navegador bloqueou a cópia. Selecione o código acima para compartilhar.</p>
@@ -250,13 +494,56 @@ export function CustomerPanel({session}: Props) {
           </div>
         )}
       </section>
+
+      <section className="panel my-tickets-panel">
+        <div className="panel-title-row">
+          <div>
+            <p className="section-label">Meus ingressos</p>
+            <h3>Ingressos emitidos</h3>
+          </div>
+          <button className="ghost-button" onClick={loadMyTickets} type="button">
+            Atualizar
+          </button>
+        </div>
+
+        <div className="my-ticket-list">
+          {myTickets.length === 0 && (
+            <div className="empty-state">
+              <strong>Nenhum ingresso emitido</strong>
+              <span>Depois do pagamento simulado aprovado, seus ingressos aparecem aqui.</span>
+            </div>
+          )}
+
+          {myTickets.map((item) => (
+            <div className="my-ticket-card" key={item.ticketId}>
+              {item.imageUrl ? <img alt="" src={item.imageUrl} /> : <div className="image-fallback">Filme</div>}
+              <div>
+                <strong>{item.title}</strong>
+                <span>{new Date(item.startsAt).toLocaleString("pt-BR")}</span>
+                <span>{item.venue} · Assento {item.seatLabel ?? "-"}</span>
+                <span>Status: {item.status}</span>
+                <code>{item.token}</code>
+                <button className="ghost-button compact-button" onClick={() => copyTicketLink(item.token)} type="button">
+                  Copiar link
+                </button>
+              </div>
+              <div className="my-ticket-qr" aria-label={`QR Code do ingresso para ${item.title}`}>
+                <QRCodeSVG value={item.qrPayload} size={112} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
-function buildPaymentCode(event: Event): string {
-  const priceCode = event.price.replace(".", "").padStart(4, "0");
-  return `PIX-SIMULADO-TICKETFLOW-${event.id.slice(0, 8)}-${priceCode}`;
+function buildShareLink(token: string): string {
+  return `${window.location.origin}${window.location.pathname}#ticket=${encodeURIComponent(token)}`;
+}
+
+function isBeforeCenterAisle(label: string): boolean {
+  return label.endsWith("5");
 }
 
 async function copyTextToClipboard(text: string) {

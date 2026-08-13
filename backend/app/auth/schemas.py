@@ -8,7 +8,7 @@ from app.db.models import UserRole
 class UserCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=4, max_length=128)
     role: UserRole
 
 
@@ -28,4 +28,5 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    user: UserRead
     token_type: str = "bearer"

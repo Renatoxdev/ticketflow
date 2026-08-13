@@ -1,11 +1,15 @@
 import type {
   AuthSession,
   CreateEventInput,
+  CustomerTicket,
   Event,
   ExternalCatalogItem,
   GateValidationResult,
+  Payment,
+  Seat,
   Ticket,
   TicketShare,
+  UpdateEventInput,
   User,
   UserRole,
 } from "./types";
@@ -58,11 +62,28 @@ function toTicket(payload: Record<string, unknown>): Ticket {
     eventId: String(payload.event_id),
     customerId: String(payload.customer_id),
     publicToken: String(payload.public_token),
+    seatLabel: payload.seat_label ? String(payload.seat_label) : null,
     status: payload.status as Ticket["status"],
     checkoutStatus: payload.checkout_status as Ticket["checkoutStatus"],
     checkoutReference: String(payload.checkout_reference),
     paidAmount: String(payload.paid_amount),
     checkoutConfirmedAt: String(payload.checkout_confirmed_at),
+    createdAt: String(payload.created_at),
+  };
+}
+
+function toPayment(payload: Record<string, unknown>): Payment {
+  return {
+    id: String(payload.id),
+    eventId: String(payload.event_id),
+    customerId: String(payload.customer_id),
+    ticketId: payload.ticket_id ? String(payload.ticket_id) : null,
+    seatLabel: String(payload.seat_label),
+    amount: String(payload.amount),
+    pixCode: String(payload.pix_code),
+    qrPayload: String(payload.qr_payload),
+    status: payload.status as Payment["status"],
+    expiresAt: String(payload.expires_at),
     createdAt: String(payload.created_at),
   };
 }
@@ -74,6 +95,23 @@ function toTicketShare(payload: Record<string, unknown>): TicketShare {
     token: String(payload.token),
     qrPayload: String(payload.qr_payload),
     status: payload.status as TicketShare["status"],
+    seatLabel: payload.seat_label ? String(payload.seat_label) : null,
+  };
+}
+
+function toCustomerTicket(payload: Record<string, unknown>): CustomerTicket {
+  return {
+    ticketId: String(payload.ticket_id),
+    eventId: String(payload.event_id),
+    title: String(payload.title),
+    imageUrl: payload.image_url ? String(payload.image_url) : null,
+    startsAt: String(payload.starts_at),
+    venue: String(payload.venue),
+    seatLabel: payload.seat_label ? String(payload.seat_label) : null,
+    token: String(payload.token),
+    qrPayload: String(payload.qr_payload),
+    status: payload.status as CustomerTicket["status"],
+    paidAmount: String(payload.paid_amount),
   };
 }
 
@@ -101,33 +139,26 @@ function createEventPayload(input: CreateEventInput): Record<string, unknown> {
   };
 }
 
-export async function registerUser(role: UserRole, email: string): Promise<AuthSession> {
-  const password = "password123";
+export async function registerUser(role: UserRole, email: string, password: string, name = "Usuário TicketFlow"): Promise<AuthSession> {
   const user = await parseJson<User>(
     await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        name: role === "GATE_OPERATOR" ? "Equipe de Portaria" : role === "ORGANIZER" ? "Organizador Demo" : "Cliente Demo",
+        name,
         email,
         password,
         role,
       }),
     }),
-  ).catch(async (error) => {
-    if (!String(error.message).includes("Já existe usuário")) {
-      throw error;
-    }
-
-    return {email, role} as User;
-  });
+  );
 
   const token = await loginUser(email, password);
-  return {accessToken: token.accessToken, role: user.role, email};
+  return {accessToken: token.accessToken, role: user.role, email: user.email};
 }
 
-export async function loginUser(email: string, password: string): Promise<{ accessToken: string }> {
-  const payload = await parseJson<{ access_token: string }>(
+export async function loginUser(email: string, password: string): Promise<AuthSession> {
+  const payload = await parseJson<{ access_token: string; user: User }>(
     await fetch(`${API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -135,7 +166,11 @@ export async function loginUser(email: string, password: string): Promise<{ acce
     }),
   );
 
-  return {accessToken: payload.access_token};
+  return {
+    accessToken: payload.access_token,
+    role: payload.user.role,
+    email: payload.user.email,
+  };
 }
 
 export async function searchExternalCatalog(session: AuthSession, query: string): Promise<ExternalCatalogItem[]> {
@@ -156,20 +191,107 @@ export async function createEvent(session: AuthSession, input: CreateEventInput)
   return toEvent(await parseJson<Record<string, unknown>>(response));
 }
 
-export async function listEvents(): Promise<Event[]> {
-  const response = await fetch(`${API_BASE_URL}/events`);
+function toQueryString(params: Record<string, string>) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}
+
+export async function listOrganizerEvents(session: AuthSession): Promise<Event[]> {
+  const response = await fetch(`${API_BASE_URL}/organizer/events`, {
+    headers: authHeaders(session),
+  });
   const payload = await parseJson<Record<string, unknown>[]>(response);
   return payload.map(toEvent);
 }
 
-export async function checkout(session: AuthSession, eventId: string): Promise<Ticket> {
+export async function updateEvent(session: AuthSession, eventId: string, input: UpdateEventInput): Promise<Event> {
+  const response = await fetch(`${API_BASE_URL}/organizer/events/${eventId}`, {
+    method: "PATCH",
+    headers: authHeaders(session),
+    body: JSON.stringify(createEventPayload(input as CreateEventInput)),
+  });
+  return toEvent(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function cancelEvent(session: AuthSession, eventId: string): Promise<Event> {
+  const response = await fetch(`${API_BASE_URL}/organizer/events/${eventId}/cancel`, {
+    method: "POST",
+    headers: authHeaders(session),
+  });
+  return toEvent(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function listEvents(filters: Record<string, string> = {}): Promise<Event[]> {
+  const response = await fetch(`${API_BASE_URL}/events${toQueryString(filters)}`);
+  const payload = await parseJson<Record<string, unknown>[]>(response);
+  return payload.map(toEvent);
+}
+
+export async function listSeats(eventId: string): Promise<Seat[]> {
+  const response = await fetch(`${API_BASE_URL}/events/${eventId}/seats`);
+  const payload = await parseJson<Record<string, unknown>[]>(response);
+  return payload.map((seat) => ({
+    label: String(seat.label),
+    status: String(seat.status),
+  }));
+}
+
+export async function checkout(session: AuthSession, eventId: string, seatLabel: string): Promise<Ticket> {
   const response = await fetch(`${API_BASE_URL}/checkout`, {
     method: "POST",
     headers: authHeaders(session),
-    body: JSON.stringify({event_id: eventId}),
+    body: JSON.stringify({event_id: eventId, seat_label: seatLabel}),
   });
 
   return toTicket(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function createPixPayment(session: AuthSession, eventId: string, seatLabel: string): Promise<Payment> {
+  const response = await fetch(`${API_BASE_URL}/payments/pix`, {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify({event_id: eventId, seat_label: seatLabel}),
+  });
+
+  return toPayment(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function approvePixPayment(session: AuthSession, paymentId: string): Promise<Ticket> {
+  const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/approve`, {
+    method: "POST",
+    headers: authHeaders(session),
+  });
+
+  return toTicket(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function failPixPayment(session: AuthSession, paymentId: string): Promise<Payment> {
+  const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/fail`, {
+    method: "POST",
+    headers: authHeaders(session),
+  });
+
+  return toPayment(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function cancelTicket(session: AuthSession, ticketId: string): Promise<Ticket> {
+  const response = await fetch(`${API_BASE_URL}/customer/tickets/${ticketId}/cancel`, {
+    method: "POST",
+    headers: authHeaders(session),
+  });
+  return toTicket(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function listCustomerTickets(session: AuthSession): Promise<CustomerTicket[]> {
+  const response = await fetch(`${API_BASE_URL}/customer/tickets`, {
+    headers: authHeaders(session),
+  });
+  const payload = await parseJson<Record<string, unknown>[]>(response);
+  return payload.map(toCustomerTicket);
 }
 
 export async function getTicketShare(session: AuthSession, ticketId: string): Promise<TicketShare> {
@@ -180,11 +302,16 @@ export async function getTicketShare(session: AuthSession, ticketId: string): Pr
   return toTicketShare(await parseJson<Record<string, unknown>>(response));
 }
 
-export async function checkIn(session: AuthSession, token: string): Promise<GateValidationResult> {
+export async function getSharedTicket(token: string): Promise<TicketShare> {
+  const response = await fetch(`${API_BASE_URL}/tickets/share/${encodeURIComponent(token)}`);
+  return toTicketShare(await parseJson<Record<string, unknown>>(response));
+}
+
+export async function checkIn(session: AuthSession, token: string, eventId: string): Promise<GateValidationResult> {
   const response = await fetch(`${API_BASE_URL}/gate/check-ins`, {
     method: "POST",
     headers: authHeaders(session),
-    body: JSON.stringify({token}),
+    body: JSON.stringify({token, event_id: eventId}),
   });
 
   const payload = await parseJson<Record<string, unknown>>(response);

@@ -15,5 +15,5 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> UserRead:
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    access_token = login_user(db, payload)
-    return TokenResponse(access_token=access_token)
+    access_token, user = login_user(db, payload)
+    return TokenResponse(access_token=access_token, user=user)

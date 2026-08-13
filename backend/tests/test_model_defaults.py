@@ -2,6 +2,7 @@ from app.db.models import (
     CheckoutStatus,
     Event,
     EventStatus,
+    PaymentStatus,
     Ticket,
     TicketStatus,
     User,
@@ -20,9 +21,10 @@ def test_public_ticket_token_is_not_short_or_reused() -> None:
 
 def test_domain_enums_match_approved_adr_states() -> None:
     assert {role.value for role in UserRole} == {"ORGANIZER", "CUSTOMER", "GATE_OPERATOR"}
-    assert {status.value for status in EventStatus} == {"DRAFT", "PUBLISHED"}
-    assert {status.value for status in TicketStatus} == {"VALID", "USED"}
+    assert {status.value for status in EventStatus} == {"DRAFT", "PUBLISHED", "CANCELLED"}
+    assert {status.value for status in TicketStatus} == {"VALID", "USED", "CANCELLED"}
     assert {status.value for status in CheckoutStatus} == {"CONFIRMED"}
+    assert {status.value for status in PaymentStatus} == {"PENDING", "PAID", "FAILED"}
 
 
 def test_core_tables_are_declared() -> None:

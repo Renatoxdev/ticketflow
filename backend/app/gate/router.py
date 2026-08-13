@@ -16,4 +16,4 @@ def check_in(
     gate_operator: User = Depends(require_role(UserRole.GATE_OPERATOR)),
     db: Session = Depends(get_db),
 ) -> GateValidationResult:
-    return check_in_ticket(db, payload.token, gate_operator)
+    return check_in_ticket(db, payload.token, payload.event_id, gate_operator)
