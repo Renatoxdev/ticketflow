@@ -21,12 +21,6 @@ const demoAccounts: Array<{label: string; email: string; password: string; role:
 
 const SESSION_STORAGE_KEY = "ticketflow.session";
 
-function roleForMode(mode: Mode): UserRole {
-  if (mode === "organizer") return "ORGANIZER";
-  if (mode === "customer") return "CUSTOMER";
-  return "GATE_OPERATOR";
-}
-
 function loadStoredSession(): AuthSession | null {
   const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
   if (!rawSession) return null;
@@ -49,9 +43,15 @@ function clearStoredSession() {
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
+function viewForRole(role: UserRole): Mode {
+  if (role === "ORGANIZER") return "organizer";
+  if (role === "CUSTOMER") return "customer";
+  return "gate";
+}
+
 export function App() {
-  const [view, setView] = useState<View>("home");
   const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
+  const [view, setView] = useState<View>(() => (session ? viewForRole(session.role) : "home"));
   const [sharedTicket, setSharedTicket] = useState<TicketShare | null>(null);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -84,10 +84,7 @@ export function App() {
     setSession(nextSession);
     saveSession(nextSession);
     setAuthError(null);
-
-    if (nextSession.role === "ORGANIZER") setView("organizer");
-    if (nextSession.role === "CUSTOMER") setView("customer");
-    if (nextSession.role === "GATE_OPERATOR") setView("gate");
+    setView(viewForRole(nextSession.role));
   }
 
   function logout() {
@@ -111,6 +108,22 @@ export function App() {
 
   let panel = sharedTicket || sharedError ? (
     <SharedTicketPanel error={sharedError} ticket={sharedTicket} />
+  ) : view === "home" ? (
+    <HomePanel
+      loading={authLoading}
+      error={authError}
+      session={session}
+      onLoginDemo={loginDemo}
+      onAuthenticated={handleAuthenticated}
+      onAuthError={setAuthError}
+      onAuthLoading={setAuthLoading}
+    />
+  ) : session?.role === "ORGANIZER" ? (
+    <OrganizerPanel session={session} />
+  ) : session?.role === "CUSTOMER" ? (
+    <CustomerPanel session={session} />
+  ) : session?.role === "GATE_OPERATOR" ? (
+    <GatePanel session={session} />
   ) : (
     <HomePanel
       loading={authLoading}
@@ -122,31 +135,6 @@ export function App() {
       onAuthLoading={setAuthLoading}
     />
   );
-
-  if (view !== "home") {
-    const expectedRole = roleForMode(view);
-    const canAccess = session?.role === expectedRole;
-
-    if (canAccess && view === "organizer") panel = <OrganizerPanel session={session} />;
-    if (canAccess && view === "customer") panel = <CustomerPanel session={session} />;
-    if (canAccess && view === "gate") panel = <GatePanel session={session} />;
-
-    if (!canAccess) {
-      panel = (
-        <AccessPanel
-          view={view}
-          expectedRole={expectedRole}
-          session={session}
-          loading={authLoading}
-          error={authError}
-          onLoginDemo={loginDemo}
-          onAuthenticated={handleAuthenticated}
-          onAuthError={setAuthError}
-          onAuthLoading={setAuthLoading}
-        />
-      );
-    }
-  }
 
   return (
     <>
@@ -161,15 +149,11 @@ export function App() {
             <button className={view === "home" ? "active" : ""} onClick={() => openView("home")} type="button">
               Home
             </button>
-            <button className={view === "organizer" ? "active" : ""} onClick={() => openView("organizer")} type="button">
-              Organizador
-            </button>
-            <button className={view === "customer" ? "active" : ""} onClick={() => openView("customer")} type="button">
-              Cliente
-            </button>
-            <button className={view === "gate" ? "active" : ""} onClick={() => openView("gate")} type="button">
-              Portaria
-            </button>
+            {session && (
+              <button className={view !== "home" ? "active" : ""} onClick={() => openView(viewForRole(session.role))} type="button">
+                {areaTitle(viewForRole(session.role))}
+              </button>
+            )}
           </nav>
 
           <div className="rail-status">
@@ -259,43 +243,6 @@ function HomePanel({
       <AuthCard
         loading={loading}
         error={error}
-        onLoginDemo={onLoginDemo}
-        onAuthenticated={onAuthenticated}
-        onAuthError={onAuthError}
-        onAuthLoading={onAuthLoading}
-      />
-    </div>
-  );
-}
-
-function AccessPanel({
-  view,
-  expectedRole,
-  session,
-  loading,
-  error,
-  onLoginDemo,
-  onAuthenticated,
-  onAuthError,
-  onAuthLoading,
-}: AuthPanelProps & {view: Mode; expectedRole: UserRole; session: AuthSession | null}) {
-  const currentRole = session ? roleLabel(session.role) : "nenhum usuário";
-  const text = session
-    ? `Você entrou como ${currentRole}. Esta área é restrita para ${roleLabel(expectedRole)}.`
-    : `Entre com um usuário ${roleLabel(expectedRole)} para acessar esta área.`;
-
-  return (
-    <div className="demo-login">
-      <section className="intro-panel compact-auth">
-        <p className="section-label">Acesso restrito</p>
-        <h2>{areaTitle(view)}</h2>
-        <p className="demo-copy">{text}</p>
-      </section>
-
-      <AuthCard
-        loading={loading}
-        error={error}
-        preferredRole={expectedRole}
         onLoginDemo={onLoginDemo}
         onAuthenticated={onAuthenticated}
         onAuthError={onAuthError}
