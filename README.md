@@ -59,6 +59,20 @@ frontend/
 
 ## Como Rodar Localmente
 
+### Pré-requisitos
+
+Para rodar pelo Docker:
+
+- Git.
+- Docker.
+- Docker Compose.
+
+Para rodar comandos de teste fora dos containers:
+
+- Python 3.12 ou superior.
+- Node.js 20 ou superior.
+- npm.
+
 ### 1. Configurar variáveis de ambiente
 
 Crie `backend/.env` com base em `backend/.env.example`:
@@ -240,6 +254,12 @@ docker build OK
 
 O projeto possui um `Dockerfile` na raiz para publicar frontend e backend em um único serviço. O build gera o frontend com Vite, copia os arquivos finais para o backend FastAPI e serve tudo pelo mesmo domínio.
 
+URL publicada:
+
+- `https://ticketflow-1-szsk.onrender.com`
+
+Para o deploy funcionar corretamente, o serviço precisa ter um banco PostgreSQL vinculado, as variáveis de ambiente configuradas e o seed executado na inicialização. O comando do container já roda migrations e seed antes de iniciar a API.
+
 Variáveis necessárias em produção:
 
 ```env
@@ -247,7 +267,7 @@ DATABASE_URL=internal_database_url_do_postgres
 JWT_SECRET=uma_string_secreta_forte
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_MINUTES=60
-CORS_ORIGINS=["https://sua-url.onrender.com"]
+CORS_ORIGINS=["https://ticketflow-1-szsk.onrender.com"]
 TMDB_API_KEY=sua_chave_da_tmdb
 ```
 
@@ -256,6 +276,16 @@ Comando iniciado pelo container:
 ```bash
 alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
+
+## Uso De IA
+
+Usei IA como apoio durante o desenvolvimento, principalmente para organizar o raciocínio por etapas, revisar decisões técnicas e validar se a implementação estava coerente com os requisitos do desafio.
+
+No início, usei IA para transformar o enunciado em um plano de trabalho: separar funcionalidades obrigatórias, opcionais, regras de negócio e pontos de atenção como concorrência, autenticação, QR Code, pagamento simulado e validação na portaria.
+
+Durante a implementação, usei IA como apoio para revisão de código, identificação de possíveis bugs, melhoria de textos da interface, revisão do README e preparação de perguntas técnicas que poderiam surgir a partir do próprio projeto.
+
+Sem IA, fiquei responsável pelas decisões finais de escopo, escolha das tecnologias, validação dos fluxos no navegador, ajustes visuais, testes locais, configuração do ambiente, deploy e revisão do comportamento real da aplicação. A IA foi usada como ferramenta de apoio para pesquisa e refinamento, mas as decisões finais e os ajustes do projeto foram feitos por mim.
 
 ## Limites Da Versão
 
