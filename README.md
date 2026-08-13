@@ -5,6 +5,7 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 ## Funcionalidades
 
 - Cadastro e login de usuários.
+- Sessão persistida no navegador após atualizar a página.
 - Três perfis: organizador, cliente e portaria.
 - Busca de filmes na TMDb pelo backend.
 - Criação, edição, listagem, cancelamento e dashboard de sessões pelo organizador.
@@ -72,6 +73,20 @@ Para rodar comandos de teste fora dos containers:
 - Python 3.12 ou superior.
 - Node.js 20 ou superior.
 - npm.
+
+### Caminho rápido
+
+Em ambientes com shell compatível com `.sh`, como Git Bash, WSL, Linux ou macOS:
+
+```bash
+sh setup-local.sh
+```
+
+O script cria os arquivos `.env` quando eles ainda não existem, sobe os containers, roda as migrations e executa o seed.
+
+Se quiser usar a busca real da TMDb, preencha `TMDB_API_KEY` em `backend/.env` antes de rodar o script.
+
+### Passo a passo manual
 
 ### 1. Configurar variáveis de ambiente
 

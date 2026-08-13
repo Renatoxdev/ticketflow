@@ -19,15 +19,39 @@ const demoAccounts: Array<{label: string; email: string; password: string; role:
   {label: "Portaria demo", email: "portaria@ticketflow.com", password: "portaria", role: "GATE_OPERATOR"},
 ];
 
+const SESSION_STORAGE_KEY = "ticketflow.session";
+
 function roleForMode(mode: Mode): UserRole {
   if (mode === "organizer") return "ORGANIZER";
   if (mode === "customer") return "CUSTOMER";
   return "GATE_OPERATOR";
 }
 
+function loadStoredSession(): AuthSession | null {
+  const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!rawSession) return null;
+
+  try {
+    const parsed = JSON.parse(rawSession) as AuthSession;
+    if (!parsed.accessToken || !parsed.email || !parsed.role) return null;
+    return parsed;
+  } catch {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function saveSession(session: AuthSession) {
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+function clearStoredSession() {
+  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
 export function App() {
   const [view, setView] = useState<View>("home");
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
   const [sharedTicket, setSharedTicket] = useState<TicketShare | null>(null);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -58,11 +82,18 @@ export function App() {
 
   function handleAuthenticated(nextSession: AuthSession) {
     setSession(nextSession);
+    saveSession(nextSession);
     setAuthError(null);
 
     if (nextSession.role === "ORGANIZER") setView("organizer");
     if (nextSession.role === "CUSTOMER") setView("customer");
     if (nextSession.role === "GATE_OPERATOR") setView("gate");
+  }
+
+  function logout() {
+    setSession(null);
+    clearStoredSession();
+    setView("home");
   }
 
   async function loginDemo(email: string, password: string) {
@@ -145,7 +176,7 @@ export function App() {
             <span className="status-dot" />
             <span>{session ? session.email : "Faça login para acessar as áreas"}</span>
             {session && (
-              <button className="inline-logout" onClick={() => setSession(null)} type="button">
+              <button className="inline-logout" onClick={logout} type="button">
                 Sair
               </button>
             )}
