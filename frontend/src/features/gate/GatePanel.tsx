@@ -69,11 +69,6 @@ export function GatePanel({session}: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
       streamRef.current = stream;
       setCameraActive(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
     } catch {
       setCameraMessage("Não foi possível acessar a câmera. Use a digitação manual.");
     }
@@ -112,6 +107,7 @@ export function GatePanel({session}: Props) {
         const value = code?.data;
 
         if (value) {
+          cancelled = true;
           const normalizedToken = extractTicketToken(value);
           setToken(normalizedToken);
           setCameraMessage("QR Code lido. Validando entrada automaticamente.");
@@ -131,6 +127,16 @@ export function GatePanel({session}: Props) {
   }, [cameraActive, selectedEventId]);
 
   useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    if (!cameraActive || !videoRef.current || !streamRef.current) return;
+
+    const video = videoRef.current;
+    video.srcObject = streamRef.current;
+    video.play().catch(() => {
+      setCameraMessage("Não foi possível iniciar a câmera. Use a digitação manual.");
+    });
+  }, [cameraActive]);
 
   const tone = result?.status === "VALID" ? "success" : result ? "warning" : error ? "danger" : "neutral";
 

@@ -241,19 +241,6 @@ export function CustomerPanel({session}: Props) {
     window.setTimeout(() => setPaymentCopyStatus("idle"), 2200);
   }
 
-  async function copyTicketCode() {
-    if (!ticket) return;
-
-    try {
-      await copyTextToClipboard(ticket.token);
-      setCopyStatus("copied");
-    } catch {
-      setCopyStatus("failed");
-    }
-
-    window.setTimeout(() => setCopyStatus("idle"), 2200);
-  }
-
   async function copyTicketLink(token: string) {
     try {
       await copyTextToClipboard(buildShareLink(token));
@@ -470,11 +457,8 @@ export function CustomerPanel({session}: Props) {
                     <div className="ticket-actions">
                       <p className="copy-hint">Link compartilhável do ingresso</p>
                       <code>{buildShareLink(ticket.token)}</code>
-                      <button className="ghost-button" onClick={copyTicketCode} type="button">
-                        {copyStatus === "copied" ? "Código copiado" : "Copiar código do ingresso"}
-                      </button>
                       <button className="ghost-button" onClick={() => copyTicketLink(ticket.token)} type="button">
-                        Copiar link compartilhável
+                        {copyStatus === "copied" ? "Link copiado" : "Copiar link compartilhável"}
                       </button>
                       <button className="ghost-button danger-button" disabled={buying} onClick={handleCancelTicket} type="button">
                         {buying ? "Cancelando" : "Cancelar ingresso"}
