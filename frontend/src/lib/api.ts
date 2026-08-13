@@ -73,12 +73,17 @@ function toTicket(payload: Record<string, unknown>): Ticket {
 }
 
 function toPayment(payload: Record<string, unknown>): Payment {
+  const seatLabels = Array.isArray(payload.seat_labels)
+    ? payload.seat_labels.map(String)
+    : [String(payload.seat_label)];
+
   return {
     id: String(payload.id),
     eventId: String(payload.event_id),
     customerId: String(payload.customer_id),
     ticketId: payload.ticket_id ? String(payload.ticket_id) : null,
-    seatLabel: String(payload.seat_label),
+    seatLabel: seatLabels[0],
+    seatLabels,
     amount: String(payload.amount),
     pixCode: String(payload.pix_code),
     qrPayload: String(payload.qr_payload),
@@ -240,6 +245,15 @@ export async function listSeats(eventId: string): Promise<Seat[]> {
   }));
 }
 
+export function buildSeatsWebSocketUrl(eventId: string): string {
+  const baseUrl = API_BASE_URL || window.location.origin;
+  const url = new URL(baseUrl, window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = `/events/${eventId}/seats/ws`;
+  url.search = "";
+  return url.toString();
+}
+
 export async function checkout(session: AuthSession, eventId: string, seatLabel: string): Promise<Ticket> {
   const response = await fetch(`${API_BASE_URL}/checkout`, {
     method: "POST",
@@ -250,23 +264,25 @@ export async function checkout(session: AuthSession, eventId: string, seatLabel:
   return toTicket(await parseJson<Record<string, unknown>>(response));
 }
 
-export async function createPixPayment(session: AuthSession, eventId: string, seatLabel: string): Promise<Payment> {
+export async function createPixPayment(session: AuthSession, eventId: string, seatLabels: string[] | string): Promise<Payment> {
+  const labels = Array.isArray(seatLabels) ? seatLabels : [seatLabels];
   const response = await fetch(`${API_BASE_URL}/payments/pix`, {
     method: "POST",
     headers: authHeaders(session),
-    body: JSON.stringify({event_id: eventId, seat_label: seatLabel}),
+    body: JSON.stringify({event_id: eventId, seat_labels: labels}),
   });
 
   return toPayment(await parseJson<Record<string, unknown>>(response));
 }
 
-export async function approvePixPayment(session: AuthSession, paymentId: string): Promise<Ticket> {
+export async function approvePixPayment(session: AuthSession, paymentId: string): Promise<Ticket[]> {
   const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/approve`, {
     method: "POST",
     headers: authHeaders(session),
   });
 
-  return toTicket(await parseJson<Record<string, unknown>>(response));
+  const payload = await parseJson<{tickets: Record<string, unknown>[]}>(response);
+  return payload.tickets.map(toTicket);
 }
 
 export async function failPixPayment(session: AuthSession, paymentId: string): Promise<Payment> {

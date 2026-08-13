@@ -85,6 +85,7 @@ export interface Payment {
   customerId: string;
   ticketId: string | null;
   seatLabel: string;
+  seatLabels: string[];
   amount: string;
   pixCode: string;
   qrPayload: string;

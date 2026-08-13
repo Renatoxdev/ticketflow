@@ -17,6 +17,7 @@ from app.db.models import (
     Event,
     EventStatus,
     Payment,
+    PaymentSeat,
     PaymentStatus,
     Ticket,
     TicketStatus,
@@ -225,7 +226,7 @@ def test_failed_payment_does_not_emit_ticket() -> None:
         with SessionLocal() as db:
             event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
             customer = authenticated_customer(customer_id)
-            payment = create_pix_payment(db, event_id, "A1", customer)
+            payment = create_pix_payment(db, event_id, ["A1"], customer)
             payment_id = payment.id
 
         with SessionLocal() as db:
@@ -249,13 +250,13 @@ def test_pending_payment_reserves_seat_until_it_fails() -> None:
         with SessionLocal() as db:
             event_id, first_customer_id, second_customer_id, _ = seed_capacity_event(db, capacity=10)
             first_customer = authenticated_customer(first_customer_id)
-            first_payment = create_pix_payment(db, event_id, "A1", first_customer)
+            first_payment = create_pix_payment(db, event_id, ["A1"], first_customer)
             first_payment_id = first_payment.id
 
         with SessionLocal() as db:
             second_customer = authenticated_customer(second_customer_id)
             with pytest.raises(ConflictError):
-                create_pix_payment(db, event_id, "A1", second_customer)
+                create_pix_payment(db, event_id, ["A1"], second_customer)
 
         with SessionLocal() as db:
             first_customer = authenticated_customer(first_customer_id)
@@ -263,7 +264,7 @@ def test_pending_payment_reserves_seat_until_it_fails() -> None:
 
         with SessionLocal() as db:
             second_customer = authenticated_customer(second_customer_id)
-            second_payment = create_pix_payment(db, event_id, "A1", second_customer)
+            second_payment = create_pix_payment(db, event_id, ["A1"], second_customer)
 
             assert second_payment.status == PaymentStatus.PENDING
             pending_count = db.query(Payment).filter(
@@ -278,12 +279,12 @@ def test_approved_payment_emits_ticket_and_shared_token_can_be_loaded() -> None:
         with SessionLocal() as db:
             event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
             customer = authenticated_customer(customer_id)
-            payment = create_pix_payment(db, event_id, "A1", customer)
+            payment = create_pix_payment(db, event_id, ["A1"], customer)
             payment_id = payment.id
 
         with SessionLocal() as db:
             customer = authenticated_customer(customer_id)
-            ticket = approve_pix_payment(db, payment_id, customer)
+            ticket = approve_pix_payment(db, payment_id, customer)[0]
             ticket_id = ticket.id
             public_token = ticket.public_token
 
@@ -293,3 +294,23 @@ def test_approved_payment_emits_ticket_and_shared_token_can_be_loaded() -> None:
             assert shared_ticket.id == ticket_id
             assert shared_ticket.status == TicketStatus.VALID
             assert shared_ticket.seat_label == "A1"
+
+
+def test_single_payment_emits_ticket_for_each_selected_seat() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
+            customer = authenticated_customer(customer_id)
+            payment = create_pix_payment(db, event_id, ["A1", "A2", "A3"], customer)
+            payment_id = payment.id
+
+            assert payment.amount == Decimal("30.00")
+            assert {seat.seat_label for seat in payment.seats} == {"A1", "A2", "A3"}
+
+        with SessionLocal() as db:
+            customer = authenticated_customer(customer_id)
+            tickets = approve_pix_payment(db, payment_id, customer)
+
+            assert {ticket.seat_label for ticket in tickets} == {"A1", "A2", "A3"}
+            assert db.query(PaymentSeat).filter(PaymentSeat.payment_id == payment_id).count() == 3
+            assert db.query(Ticket).filter(Ticket.event_id == event_id).count() == 3

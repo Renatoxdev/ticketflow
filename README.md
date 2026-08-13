@@ -7,11 +7,12 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 - Cadastro e login de usuários.
 - Três perfis: organizador, cliente e portaria.
 - Busca de filmes na TMDb pelo backend.
-- Criação, edição, listagem e cancelamento de sessões pelo organizador.
+- Criação, edição, listagem, cancelamento e dashboard de sessões pelo organizador.
 - Vitrine de sessões em cartaz com pôsteres, data, sala, preço e ocupação.
 - Busca e filtros por nome/sala, período e preço máximo.
-- Mapa de assentos com corredor central.
-- Reserva temporária do assento enquanto o pagamento Pix simulado está pendente.
+- Mapa de assentos com corredor central e seleção de um ou mais lugares.
+- Atualização do mapa de assentos por WebSocket, com fallback por consulta periódica.
+- Reserva temporária dos assentos enquanto o pagamento Pix simulado está pendente.
 - Pagamento simulado com aprovação, recusa e nova tentativa.
 - Emissão de ingresso somente após pagamento aprovado.
 - Área "Meus ingressos" com dados do evento e QR Code.
@@ -118,14 +119,15 @@ O seed cria usuários de teste e uma sessão publicada com assentos disponíveis
 3. Conferir título, sinopse e pôster.
 4. Definir data, sala, capacidade e preço.
 5. Publicar, editar ou cancelar sessões.
+6. Acompanhar resumo de sessões, ingressos vendidos e ocupação média.
 
 ### Cliente
 
 1. Entrar como cliente.
 2. Navegar pela vitrine de filmes.
 3. Filtrar sessões, se necessário.
-4. Escolher um assento disponível.
-5. Gerar pagamento Pix simulado.
+4. Escolher um ou mais assentos disponíveis.
+5. Gerar um único pagamento Pix simulado para os assentos escolhidos.
 6. Aprovar ou recusar o pagamento.
 7. Receber ingresso com QR Code após aprovação.
 8. Ver ingressos emitidos em "Meus ingressos".
@@ -144,11 +146,15 @@ O seed cria usuários de teste e uma sessão publicada com assentos disponíveis
 
 ### Reserva temporária
 
-Ao gerar o pagamento Pix simulado, o assento fica reservado por 15 minutos. Enquanto a cobrança está pendente, outro cliente não consegue escolher o mesmo assento. Se o pagamento for recusado ou expirar, o assento volta a ficar disponível.
+Ao gerar o pagamento Pix simulado, os assentos escolhidos ficam reservados por 15 minutos. Enquanto a cobrança está pendente, outro cliente não consegue escolher os mesmos lugares. Se o pagamento for recusado ou expirar, os assentos voltam a ficar disponíveis.
 
 ### Concorrência
 
-A criação do pagamento e a emissão do ingresso usam transação no PostgreSQL. O backend bloqueia a sessão durante a checagem de disponibilidade e o banco possui índices únicos para impedir duplicidade de assentos confirmados e reservas pendentes.
+A criação do pagamento e a emissão dos ingressos usam transação no PostgreSQL. O backend bloqueia a sessão durante a checagem de disponibilidade e o banco possui índices únicos para impedir duplicidade de assentos confirmados e reservas pendentes.
+
+Quando o cliente escolhe mais de um assento, o sistema gera uma única cobrança Pix simulada. Depois da aprovação, o backend emite um ingresso separado para cada assento comprado.
+
+O mapa de assentos usa WebSocket para manter a tela atualizada enquanto o cliente escolhe o lugar. Se o navegador ou ambiente bloquear o canal, a aplicação volta automaticamente para atualização periódica.
 
 ### Ingresso seguro
 
@@ -181,6 +187,7 @@ Cliente:
 
 - `GET /events`
 - `GET /events/{event_id}/seats`
+- `WS /events/{event_id}/seats/ws`
 - `POST /payments/pix`
 - `POST /payments/{payment_id}/approve`
 - `POST /payments/{payment_id}/fail`
@@ -222,9 +229,10 @@ npm run test:e2e
 Resultado da última verificação local:
 
 ```text
-12 passed
+13 passed
 All checks passed!
 npm run build OK
+Playwright E2E: 3 passed
 docker build OK
 ```
 
@@ -254,6 +262,6 @@ alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0
 - O pagamento é simulado; não há transação financeira real.
 - Não há integração com PSP real ou sandbox de provedor de pagamento.
 - O fluxo usa mapa de assentos; não há modo separado por setor/quantidade.
-- O mapa de assentos atualiza automaticamente por consulta periódica, não por WebSocket.
+- O mapa de assentos usa WebSocket com fallback por consulta periódica.
 - Quem possui o link compartilhável consegue visualizar o ingresso.
 - Não há recuperação de senha, envio de e-mail, nota fiscal, revenda ou aplicativo nativo.

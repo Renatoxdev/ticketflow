@@ -29,6 +29,7 @@ export function OrganizerPanel({session}: Props) {
   const [managementLoading, setManagementLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [managementError, setManagementError] = useState<string | null>(null);
+  const dashboard = buildOrganizerDashboard(managedEvents);
 
   async function loadManagedEvents() {
     setManagementLoading(true);
@@ -281,6 +282,14 @@ export function OrganizerPanel({session}: Props) {
 
         {managementError && <p className="feedback danger">{managementError}</p>}
 
+        <div className="dashboard-strip">
+          <DashboardMetric label="Sessões" value={dashboard.totalEvents} />
+          <DashboardMetric label="Ativas" value={dashboard.activeEvents} />
+          <DashboardMetric label="Canceladas" value={dashboard.cancelledEvents} />
+          <DashboardMetric label="Vendidos" value={dashboard.soldTickets} />
+          <DashboardMetric label="Ocupação média" value={`${dashboard.averageOccupancy}%`} />
+        </div>
+
         <div className="management-list">
           {managedEvents.length === 0 && (
             <div className="empty-state">
@@ -362,6 +371,29 @@ export function OrganizerPanel({session}: Props) {
       </section>
     </div>
   );
+}
+
+function DashboardMetric({label, value}: {label: string; value: string | number}) {
+  return (
+    <div className="dashboard-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function buildOrganizerDashboard(events: Event[]) {
+  const activeEvents = events.filter((event) => event.status === "PUBLISHED");
+  const capacity = activeEvents.reduce((total, event) => total + event.capacity, 0);
+  const soldTickets = activeEvents.reduce((total, event) => total + event.soldCount, 0);
+
+  return {
+    totalEvents: events.length,
+    activeEvents: activeEvents.length,
+    cancelledEvents: events.filter((event) => event.status === "CANCELLED").length,
+    soldTickets,
+    averageOccupancy: capacity > 0 ? Math.round((soldTickets / capacity) * 100) : 0,
+  };
 }
 
 function toDatetimeLocal(value: string) {

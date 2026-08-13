@@ -123,7 +123,7 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  font-size: clamp(2.2rem, 3.6vw, 3.8rem);
   line-height: 0.9;
   text-shadow: 0 3px 0 rgba(142, 6, 8, 0.55);
 }
@@ -153,7 +153,7 @@ code {
 .app-shell {
   display: block;
   min-height: 100vh;
-  padding-top: 132px;
+  padding-top: 148px;
 }
 
 .top-nav-zone {
@@ -167,13 +167,13 @@ code {
 
 .top-nav {
   display: grid;
-  grid-template-columns: minmax(180px, 260px) minmax(320px, 1fr) minmax(180px, 280px);
+  grid-template-columns: minmax(160px, 220px) minmax(320px, 1fr) minmax(180px, 280px);
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
   border-bottom: 1px solid var(--line);
   background: var(--black);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-3) var(--space-5);
   animation: slideDown 420ms ease both;
 }
 
@@ -185,7 +185,7 @@ code {
 .flow-header h2::after {
   display: block;
   width: min(100%, 320px);
-  height: 7px;
+  height: 6px;
   margin-top: var(--space-2);
   border-radius: 999px;
   background: var(--red);
@@ -198,6 +198,7 @@ code {
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0;
+  line-height: 1.4;
   text-transform: uppercase;
 }
 
@@ -346,6 +347,7 @@ code {
 
 .compact-auth {
   max-width: 760px;
+  padding-top: var(--space-6);
 }
 
 .auth-card {
@@ -712,6 +714,35 @@ code {
   gap: var(--space-2);
 }
 
+.dashboard-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard-metric {
+  display: grid;
+  gap: var(--space-1);
+  border: 1px solid rgba(224, 159, 62, 0.24);
+  border-radius: var(--radius);
+  background: rgba(224, 159, 62, 0.08);
+  padding: var(--space-3);
+}
+
+.dashboard-metric span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dashboard-metric strong {
+  color: var(--bronze);
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
 .danger-button {
   border-color: rgba(255, 122, 112, 0.6);
   color: var(--danger);
@@ -787,6 +818,24 @@ code {
   gap: var(--space-3);
   border-top: 1px solid var(--line);
   padding-top: var(--space-4);
+}
+
+.live-pill {
+  width: fit-content;
+  border: 1px solid rgba(224, 159, 62, 0.32);
+  border-radius: 999px;
+  background: rgba(224, 159, 62, 0.08);
+  padding: 0.42rem 0.72rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.live-pill.online {
+  border-color: rgba(224, 159, 62, 0.72);
+  color: var(--bronze);
+  box-shadow: 0 0 18px rgba(224, 159, 62, 0.12);
 }
 
 .screen-line {
@@ -871,6 +920,11 @@ code {
 
 .payment-details h3 {
   font-size: 1.2rem;
+}
+
+.payment-code-list {
+  display: grid;
+  gap: var(--space-2);
 }
 
 .payment-qr {
@@ -1187,7 +1241,8 @@ code {
 
   .flow-grid,
   .gate-console,
-  .area-overview {
+  .area-overview,
+  .dashboard-strip {
     grid-template-columns: 1fr;
   }
 }
@@ -1246,6 +1301,7 @@ code {
   .shared-ticket-card,
   .inline-form,
   .filter-form,
+  .dashboard-strip,
   .panel-title-row,
   .selected-media,
   .checkout-summary,

@@ -153,7 +153,6 @@ class Ticket(Base):
     event: Mapped[Event] = relationship(back_populates="tickets")
     customer: Mapped[User] = relationship(back_populates="tickets")
     check_in: Mapped["CheckIn | None"] = relationship(back_populates="ticket")
-    payment: Mapped["Payment | None"] = relationship(back_populates="ticket")
 
     __table_args__ = (
         CheckConstraint("paid_amount >= 0", name="ck_tickets_paid_amount_non_negative"),
@@ -194,7 +193,7 @@ class Payment(Base):
 
     event: Mapped[Event] = relationship(back_populates="payments")
     customer: Mapped[User] = relationship(back_populates="payments")
-    ticket: Mapped[Ticket | None] = relationship(back_populates="payment")
+    seats: Mapped[list["PaymentSeat"]] = relationship(back_populates="payment", cascade="all, delete-orphan")
 
     @property
     def qr_payload(self) -> str:
@@ -203,8 +202,31 @@ class Payment(Base):
     __table_args__ = (
         CheckConstraint("amount >= 0", name="ck_payments_amount_non_negative"),
         Index("ix_payments_customer_status", "customer_id", "status"),
+    )
+
+
+class PaymentSeat(Base):
+    __tablename__ = "payment_seats"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("payments.id", ondelete="CASCADE"), nullable=False)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="RESTRICT"), nullable=False)
+    seat_label: Mapped[str] = mapped_column(String(8), nullable=False)
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, name="payment_status"),
+        default=PaymentStatus.PENDING,
+        nullable=False,
+    )
+    ticket_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tickets.id", ondelete="RESTRICT"), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    payment: Mapped[Payment] = relationship(back_populates="seats")
+    ticket: Mapped[Ticket | None] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("payment_id", "seat_label", name="uq_payment_seats_payment_seat"),
         Index(
-            "uq_pending_payments_event_seat",
+            "uq_pending_payment_seats_event_seat",
             "event_id",
             "seat_label",
             unique=True,

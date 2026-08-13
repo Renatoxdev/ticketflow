@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.db.models import CheckoutStatus, PaymentStatus, Ticket, TicketStatus
+from app.db.models import CheckoutStatus, Payment, PaymentStatus, Ticket, TicketStatus
 
 
 class CheckoutCreate(BaseModel):
@@ -14,7 +14,8 @@ class CheckoutCreate(BaseModel):
 
 class PaymentCreate(BaseModel):
     event_id: UUID
-    seat_label: str = Field(min_length=2, max_length=8)
+    seat_label: str | None = Field(default=None, min_length=2, max_length=8)
+    seat_labels: list[str] | None = None
 
 
 class PaymentRead(BaseModel):
@@ -23,6 +24,7 @@ class PaymentRead(BaseModel):
     customer_id: UUID
     ticket_id: UUID | None
     seat_label: str
+    seat_labels: list[str]
     amount: Decimal
     pix_code: str
     qr_payload: str
@@ -31,6 +33,24 @@ class PaymentRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_payment(cls, payment: "Payment") -> "PaymentRead":
+        seat_labels = [seat.seat_label for seat in payment.seats] or [payment.seat_label]
+        return cls(
+            id=payment.id,
+            event_id=payment.event_id,
+            customer_id=payment.customer_id,
+            ticket_id=payment.ticket_id,
+            seat_label=seat_labels[0],
+            seat_labels=seat_labels,
+            amount=payment.amount,
+            pix_code=payment.pix_code,
+            qr_payload=payment.qr_payload,
+            status=payment.status,
+            expires_at=payment.expires_at,
+            created_at=payment.created_at,
+        )
 
 
 class TicketRead(BaseModel):
@@ -47,6 +67,10 @@ class TicketRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TicketListRead(BaseModel):
+    tickets: list[TicketRead]
 
 
 class TicketShare(BaseModel):

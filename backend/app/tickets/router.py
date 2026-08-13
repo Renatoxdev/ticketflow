@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_role
 from app.db.models import User, UserRole
 from app.db.session import get_db
-from app.tickets.schemas import CheckoutCreate, CustomerTicketRead, PaymentCreate, PaymentRead, TicketRead, TicketShare
+from app.tickets.schemas import (
+    CheckoutCreate,
+    CustomerTicketRead,
+    PaymentCreate,
+    PaymentRead,
+    TicketListRead,
+    TicketRead,
+    TicketShare,
+)
 from app.tickets.service import (
     approve_pix_payment,
     buy_ticket,
@@ -36,16 +44,17 @@ def create_payment(
     customer: User = Depends(require_role(UserRole.CUSTOMER)),
     db: Session = Depends(get_db),
 ) -> PaymentRead:
-    return create_pix_payment(db, payload.event_id, payload.seat_label, customer)
+    seat_labels = payload.seat_labels or ([payload.seat_label] if payload.seat_label else [])
+    return PaymentRead.from_payment(create_pix_payment(db, payload.event_id, seat_labels, customer))
 
 
-@router.post("/payments/{payment_id}/approve", response_model=TicketRead)
+@router.post("/payments/{payment_id}/approve", response_model=TicketListRead)
 def approve_payment(
     payment_id: UUID,
     customer: User = Depends(require_role(UserRole.CUSTOMER)),
     db: Session = Depends(get_db),
-) -> TicketRead:
-    return approve_pix_payment(db, payment_id, customer)
+) -> TicketListRead:
+    return TicketListRead(tickets=approve_pix_payment(db, payment_id, customer))
 
 
 @router.post("/payments/{payment_id}/fail", response_model=PaymentRead)
@@ -54,7 +63,7 @@ def fail_payment(
     customer: User = Depends(require_role(UserRole.CUSTOMER)),
     db: Session = Depends(get_db),
 ) -> PaymentRead:
-    return fail_pix_payment(db, payment_id, customer)
+    return PaymentRead.from_payment(fail_pix_payment(db, payment_id, customer))
 
 
 @router.get("/customer/tickets", response_model=list[CustomerTicketRead])

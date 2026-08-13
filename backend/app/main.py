@@ -9,6 +9,7 @@ from app.auth.router import router as auth_router
 from app.core.config import settings
 from app.core.errors import AppError
 from app.events.router import router as events_router
+from app.events.websocket import router as events_websocket_router
 from app.gate.router import router as gate_router
 from app.organizer.router import router as organizer_router
 from app.tickets.router import router as tickets_router
@@ -36,6 +37,7 @@ def health_check() -> dict[str, str]:
 
 app.include_router(organizer_router)
 app.include_router(events_router)
+app.include_router(events_websocket_router)
 app.include_router(tickets_router)
 app.include_router(gate_router)
 app.include_router(auth_router)

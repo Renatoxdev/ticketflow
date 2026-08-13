@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
-from app.db.models import Event, EventStatus, Payment, PaymentStatus, Ticket, TicketStatus, User
+from app.db.models import Event, EventStatus, Payment, PaymentSeat, PaymentStatus, Ticket, TicketStatus, User
 from app.events.schemas import EventCreate, EventUpdate, SeatRead
 
 
@@ -131,6 +131,8 @@ def list_event_seats(db: Session, event_id: UUID) -> list[SeatRead]:
     released_any = False
     for payment in expired_payments:
         payment.status = PaymentStatus.FAILED
+        for payment_seat in payment.seats:
+            payment_seat.status = PaymentStatus.FAILED
         released_any = True
     if released_any:
         db.commit()
@@ -149,9 +151,11 @@ def list_event_seats(db: Session, event_id: UUID) -> list[SeatRead]:
     reserved_seats = {
         seat
         for seat in db.scalars(
-            select(Payment.seat_label).where(
-                Payment.event_id == event.id,
-                Payment.status == PaymentStatus.PENDING,
+            select(PaymentSeat.seat_label)
+            .join(Payment)
+            .where(
+                PaymentSeat.event_id == event.id,
+                PaymentSeat.status == PaymentStatus.PENDING,
                 Payment.expires_at > datetime.now(UTC),
             )
         )
