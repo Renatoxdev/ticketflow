@@ -458,7 +458,7 @@ export function CustomerPanel({session}: Props) {
               <div className="ticket-surface">
                 <div className="ticket-card">
                   <div className="qr-box">
-                    <QRCodeSVG value={ticket.qrPayload} size={168} />
+                    <QRCodeSVG value={buildShareLink(ticket.token)} size={168} />
                   </div>
 
                   <div className="ticket-details">
@@ -468,7 +468,8 @@ export function CustomerPanel({session}: Props) {
                     </div>
 
                     <div className="ticket-actions">
-                      <code>{ticket.token}</code>
+                      <p className="copy-hint">Link compartilhável do ingresso</p>
+                      <code>{buildShareLink(ticket.token)}</code>
                       <button className="ghost-button" onClick={copyTicketCode} type="button">
                         {copyStatus === "copied" ? "Código copiado" : "Copiar código do ingresso"}
                       </button>
@@ -517,18 +518,19 @@ export function CustomerPanel({session}: Props) {
           {myTickets.map((item) => (
             <div className="my-ticket-card" key={item.ticketId}>
               {item.imageUrl ? <img alt="" src={item.imageUrl} /> : <div className="image-fallback">Filme</div>}
-              <div>
+              <div className="my-ticket-info">
                 <strong>{item.title}</strong>
                 <span>{new Date(item.startsAt).toLocaleString("pt-BR")}</span>
                 <span>{item.venue} · Assento {item.seatLabel ?? "-"}</span>
                 <span>Status: {item.status}</span>
-                <code>{item.token}</code>
+                <small>Link compartilhável</small>
+                <code>{buildShareLink(item.token)}</code>
                 <button className="ghost-button compact-button" onClick={() => copyTicketLink(item.token)} type="button">
                   Copiar link
                 </button>
               </div>
               <div className="my-ticket-qr" aria-label={`QR Code do ingresso para ${item.title}`}>
-                <QRCodeSVG value={item.qrPayload} size={112} />
+                <QRCodeSVG value={buildShareLink(item.token)} size={112} />
               </div>
             </div>
           ))}

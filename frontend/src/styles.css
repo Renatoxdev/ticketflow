@@ -925,40 +925,57 @@ code {
 
 .my-ticket-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: var(--space-3);
 }
 
 .my-ticket-card {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
+  grid-template-columns: 92px minmax(0, 1fr) 132px;
+  align-items: start;
+  gap: var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(36, 36, 36, 0.78);
-  padding: var(--space-3);
+  padding: var(--space-4);
 }
 
 .my-ticket-card img,
 .my-ticket-card .image-fallback {
-  width: 86px;
-  min-height: 126px;
+  width: 92px;
+  min-height: 138px;
   aspect-ratio: 2 / 3;
   border: 2px solid var(--bronze);
   border-radius: var(--radius);
   object-fit: cover;
 }
 
-.my-ticket-card > div:not(.image-fallback):not(.my-ticket-qr) {
+.my-ticket-info {
   display: grid;
   min-width: 0;
   gap: var(--space-2);
 }
 
+.my-ticket-info small {
+  color: var(--bronze);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.my-ticket-info code {
+  max-height: 92px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 .my-ticket-qr {
   display: grid;
   place-items: center;
+  justify-self: end;
+  width: 132px;
+  min-height: 132px;
   border: 1px solid rgba(224, 159, 62, 0.3);
   border-radius: var(--radius);
   background: #ffffff;

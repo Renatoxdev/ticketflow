@@ -46,7 +46,9 @@ export function GatePanel({session}: Props) {
     setResult(null);
 
     try {
-      setResult(await checkIn(session, value.trim(), eventId));
+      const normalizedToken = extractTicketToken(value);
+      setToken(normalizedToken);
+      setResult(await checkIn(session, normalizedToken, eventId));
     } catch (checkError) {
       setError(checkError instanceof Error ? checkError.message : "Não encontramos um ingresso válido com esse código.");
     } finally {
@@ -110,10 +112,11 @@ export function GatePanel({session}: Props) {
         const value = code?.data;
 
         if (value) {
-          setToken(value);
+          const normalizedToken = extractTicketToken(value);
+          setToken(normalizedToken);
           setCameraMessage("QR Code lido. Validando entrada automaticamente.");
           stopCamera();
-          await validateToken(value, selectedEventId);
+          await validateToken(normalizedToken, selectedEventId);
         }
       } catch {
         setCameraMessage("Não foi possível ler o QR Code. Tente aproximar a câmera ou digite o código.");
@@ -188,4 +191,22 @@ export function GatePanel({session}: Props) {
       </section>
     </div>
   );
+}
+
+function extractTicketToken(value: string): string {
+  const trimmed = value.trim();
+
+  try {
+    const url = new URL(trimmed);
+    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const hashToken = hashParams.get("ticket");
+    if (hashToken) return hashToken;
+
+    const queryToken = url.searchParams.get("ticket");
+    if (queryToken) return queryToken;
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
 }

@@ -15,8 +15,9 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 - Pagamento simulado com aprovação, recusa e nova tentativa.
 - Emissão de ingresso somente após pagamento aprovado.
 - Área "Meus ingressos" com dados do evento e QR Code.
+- QR Code do ingresso apontando para o link compartilhável.
 - Link compartilhável de ingresso por token público seguro.
-- Validação na portaria por câmera ou digitação manual.
+- Validação na portaria por câmera do dispositivo ou digitação manual.
 - Retornos de portaria para ingresso válido, inválido, já utilizado e evento errado.
 - Cancelamento de ingresso com devolução do assento ao estoque.
 - Proteção no backend e no banco contra venda duplicada e check-in duplicado.
@@ -129,12 +130,13 @@ O seed cria usuários de teste e uma sessão publicada com assentos disponíveis
 7. Receber ingresso com QR Code após aprovação.
 8. Ver ingressos emitidos em "Meus ingressos".
 9. Copiar link compartilhável do ingresso.
+10. Abrir o QR Code pela câmera do celular para acessar o ingresso compartilhado.
 
 ### Portaria
 
 1. Entrar como portaria.
 2. Selecionar a sessão da entrada.
-3. Ler o QR Code pela câmera ou digitar o token.
+3. Ler o QR Code pela câmera do dispositivo ou digitar o token/link.
 4. Validar a entrada.
 5. Receber retorno claro: válido, inválido, já utilizado ou evento errado.
 
@@ -150,7 +152,11 @@ A criação do pagamento e a emissão do ingresso usam transação no PostgreSQL
 
 ### Ingresso seguro
 
-O QR Code não usa ID sequencial. Cada ingresso recebe um token público aleatório, gerado no backend. A portaria valida esse token no banco e registra o check-in.
+O QR Code não usa ID sequencial. Cada ingresso recebe um token público aleatório, gerado no backend. O QR Code exibido para o cliente aponta para o link compartilhável do ingresso.
+
+A portaria aceita tanto o token puro quanto o link completo do ingresso. Assim, o QR Code pode ser lido pela câmera dentro da tela de portaria ou pela câmera comum do celular. Ao abrir pela câmera comum, o celular acessa a página compartilhável do ingresso.
+
+Em navegadores mobile, a leitura pela câmera dentro da aplicação depende de HTTPS, que já é o padrão em produção no Render.
 
 ### Validação única
 
