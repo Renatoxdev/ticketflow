@@ -53,6 +53,9 @@ button {
   color: var(--black);
   cursor: pointer;
   font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  white-space: normal;
   transition:
     background 160ms ease,
     border-color 160ms ease,
@@ -113,6 +116,7 @@ h2 {
   font-family: Limelight, Poppins, sans-serif;
   color: var(--bronze);
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 h1 {
@@ -206,6 +210,7 @@ code {
   border-color: var(--line);
   background: transparent;
   color: var(--bronze);
+  padding: 10px 12px;
 }
 
 .mode-switcher button.active {
@@ -308,10 +313,12 @@ code {
 .area-card strong {
   color: var(--ink);
   font-size: 1.16rem;
+  overflow-wrap: anywhere;
 }
 
 .area-card span:last-child {
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .area-step {
@@ -457,6 +464,7 @@ code {
   color: var(--ink);
   font-size: 0.92rem;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .poster-overlay small {
@@ -562,6 +570,7 @@ code {
   margin: 0;
   color: var(--ink);
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .capacity-meter {
@@ -716,6 +725,7 @@ code {
   font-size: clamp(1.7rem, 4vw, 3.2rem);
   font-weight: 400;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .gate-result.success {
@@ -842,6 +852,47 @@ code {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --space-5: 20px;
+    --space-6: 24px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 12vw, 3.1rem);
+    line-height: 0.95;
+  }
+
+  h2 {
+    font-size: clamp(1.7rem, 9vw, 2.45rem);
+    line-height: 1;
+  }
+
+  h3 {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .app-shell {
+    padding-top: 246px;
+  }
+
+  .top-nav {
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .top-brand {
+    text-align: center;
+  }
+
+  .top-brand h1::after,
+  .flow-header h2::after {
+    width: min(100%, 220px);
+    height: 5px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
   .workspace,
   .intro-panel,
   .flow-header,
@@ -860,16 +911,101 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .mode-switcher {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mode-switcher button {
+    min-height: 44px;
+    padding: 9px 8px;
+    font-size: 0.84rem;
+  }
+
+  .rail-status {
+    justify-content: center;
+    text-align: center;
+    font-size: 0.78rem;
+  }
+
+  .intro-panel {
+    border-bottom-width: 7px;
+  }
+
+  .demo-copy,
+  .panel p {
+    font-size: 0.94rem;
+  }
+
+  .area-card {
+    min-height: auto;
+    padding: var(--space-4);
+  }
+
+  .poster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .poster-card,
+  .poster-card img,
+  .poster-fallback {
+    min-height: 210px;
+  }
+
+  .poster-overlay {
+    padding: 48px var(--space-2) var(--space-2);
+  }
+
+  .selected-media img,
+  .checkout-summary img,
+  .image-fallback {
+    max-width: min(100%, 260px);
+    margin: 0 auto;
+  }
+
+  .checkout-summary dl {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-details,
+  .ticket-details,
+  .ticket-actions {
+    min-width: 0;
+  }
+
   .event-row {
     grid-template-columns: 1fr;
   }
 
   .qr-box {
     width: 100%;
+    min-height: 180px;
   }
 
   .capacity-copy {
     display: grid;
     gap: var(--space-1);
+  }
+}
+
+@media (max-width: 380px) {
+  .app-shell {
+    padding-top: 238px;
+  }
+
+  .workspace,
+  .intro-panel,
+  .flow-header,
+  .panel {
+    padding: var(--space-3);
+  }
+
+  .mode-switcher button {
+    font-size: 0.78rem;
+  }
+
+  .poster-grid {
+    grid-template-columns: 1fr;
   }
 }
