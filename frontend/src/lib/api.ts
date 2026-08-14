@@ -230,6 +230,16 @@ export async function cancelEvent(session: AuthSession, eventId: string): Promis
   return toEvent(await parseJson<Record<string, unknown>>(response));
 }
 
+export async function deleteEvent(session: AuthSession, eventId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/organizer/events/${eventId}`, {
+    method: "DELETE",
+    headers: authHeaders(session),
+  });
+  if (!response.ok) {
+    await parseJson(response);
+  }
+}
+
 export async function listEvents(filters: Record<string, string> = {}): Promise<Event[]> {
   const response = await fetch(`${API_BASE_URL}/events${toQueryString(filters)}`);
   const payload = await parseJson<Record<string, unknown>[]>(response);

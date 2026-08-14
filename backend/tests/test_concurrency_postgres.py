@@ -28,7 +28,14 @@ from app.db.models import (
     UserRole,
 )
 from app.events.schemas import EventCreate
-from app.events.service import build_seat_label, create_published_event, list_available_events, list_organizer_events
+from app.events.service import (
+    build_seat_label,
+    cancel_organizer_event,
+    create_published_event,
+    delete_cancelled_organizer_event,
+    list_available_events,
+    list_organizer_events,
+)
 from app.gate.service import check_in_ticket
 from app.tickets.service import (
     approve_pix_payment,
@@ -488,6 +495,35 @@ def test_cancelled_event_marks_pending_payments_as_failed() -> None:
             assert payment is not None
             assert payment.status == PaymentStatus.FAILED
             assert {seat.status for seat in payment.seats} == {PaymentStatus.FAILED}
+
+
+def test_cancelled_event_without_history_can_be_deleted() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, _, _, organizer_id = seed_capacity_event(db, capacity=10)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+            cancel_organizer_event(db, event_id, organizer)
+            delete_cancelled_organizer_event(db, event_id, organizer)
+
+        with SessionLocal() as db:
+            assert db.get(Event, event_id) is None
+
+
+def test_cancelled_event_with_payment_history_cannot_be_deleted() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, organizer_id = seed_capacity_event(db, capacity=10)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+            create_pix_payment(db, event_id, ["A1"], authenticated_customer(customer_id))
+            cancel_organizer_event(db, event_id, organizer)
+
+            with pytest.raises(ConflictError, match="historico"):
+                delete_cancelled_organizer_event(db, event_id, organizer)
+
+        with SessionLocal() as db:
+            assert db.get(Event, event_id) is not None
 
 
 def test_approved_payment_emits_ticket_and_shared_token_can_be_loaded() -> None:

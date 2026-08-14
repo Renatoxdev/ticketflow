@@ -135,6 +135,9 @@ test("evento cancelado permanece no histórico do organizador", async ({page}) =
   await expect(row.getByText("Cancelada", {exact: true})).toBeVisible();
   await expect(row.getByRole("button", {name: "Editar"})).toBeDisabled();
   await expect(row.getByRole("button", {name: "Cancelar"})).toBeDisabled();
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", {name: "Excluir"}).click();
+  await expect(row).toHaveCount(0);
 });
 
 test("pagamento recusado permite nova tentativa", async ({page}) => {

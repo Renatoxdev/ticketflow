@@ -9,7 +9,7 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 - Login único com redirecionamento automático conforme o perfil do usuário.
 - Três perfis: organizador, cliente e portaria.
 - Busca de filmes na TMDb pelo backend.
-- Criação, edição, listagem, cancelamento e dashboard de sessões pelo organizador, mantendo as canceladas visíveis no histórico.
+- Criação, edição, listagem, cancelamento, exclusão segura e dashboard de sessões pelo organizador, mantendo as canceladas visíveis no histórico até a exclusão.
 - Criação e edição de sessões apenas com data e horário futuros.
 - Vitrine de sessões em cartaz com pôsteres, data, sala, preço e ocupação.
 - Busca e filtros por nome/sala, período e preço máximo.
@@ -234,6 +234,7 @@ Organizador:
 - `POST /organizer/events`
 - `PATCH /organizer/events/{event_id}`
 - `POST /organizer/events/{event_id}/cancel`
+- `DELETE /organizer/events/{event_id}`
 
 Cliente:
 
@@ -281,7 +282,7 @@ npm run test:e2e
 Resultado da última verificação local:
 
 ```text
-28 passed
+30 passed
 All checks passed!
 npm run build OK
 Playwright E2E: 10 passed (incluindo fluxo completo, persistência, Home, cancelamento, falha de API, loading, mobile e tablet)

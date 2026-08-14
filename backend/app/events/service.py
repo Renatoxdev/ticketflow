@@ -137,6 +137,22 @@ def cancel_organizer_event(db: Session, event_id: UUID, organizer: User) -> Even
     db.refresh(event)
     return event
 
+
+def delete_cancelled_organizer_event(db: Session, event_id: UUID, organizer: User) -> None:
+    event = get_event_for_organizer(db, event_id, organizer)
+    if event is None:
+        raise NotFoundError("Sessao nao encontrada.")
+    if event.status != EventStatus.CANCELLED:
+        raise ConflictError("Apenas sessoes canceladas podem ser excluidas.")
+
+    tickets_count = db.scalar(select(func.count(Ticket.id)).where(Ticket.event_id == event.id)) or 0
+    payments_count = db.scalar(select(func.count(Payment.id)).where(Payment.event_id == event.id)) or 0
+    if tickets_count > 0 or payments_count > 0:
+        raise ConflictError("Esta sessao possui historico financeiro ou ingressos e nao pode ser excluida.")
+
+    db.delete(event)
+    db.commit()
+
 def build_seat_label(index: int) -> str:
     row_index = index // 10
     row = ""

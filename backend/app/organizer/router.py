@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_role
@@ -10,6 +10,7 @@ from app.events.schemas import EventCreate, EventRead, EventUpdate
 from app.events.service import (
     cancel_organizer_event,
     create_published_event,
+    delete_cancelled_organizer_event,
     list_organizer_events,
     update_organizer_event,
 )
@@ -61,3 +62,13 @@ def cancel_event(
     db: Session = Depends(get_db),
 ) -> EventRead:
     return cancel_organizer_event(db, event_id, organizer)
+
+
+@router.delete("/events/{event_id}", status_code=204)
+def delete_event(
+    event_id: UUID,
+    organizer: User = Depends(require_role(UserRole.ORGANIZER)),
+    db: Session = Depends(get_db),
+) -> Response:
+    delete_cancelled_organizer_event(db, event_id, organizer)
+    return Response(status_code=204)

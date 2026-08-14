@@ -1,6 +1,6 @@
 import {FormEvent, useEffect, useState} from "react";
 
-import {cancelEvent, createEvent, listOrganizerEvents, searchExternalCatalog, updateEvent} from "../../lib/api";
+import {cancelEvent, createEvent, deleteEvent, listOrganizerEvents, searchExternalCatalog, updateEvent} from "../../lib/api";
 import type {AuthSession, CreateEventInput, Event, ExternalCatalogItem, UpdateEventInput} from "../../lib/types";
 
 type Props = {
@@ -35,6 +35,7 @@ export function OrganizerPanel({session}: Props) {
   const [saving, setSaving] = useState(false);
   const [managementLoading, setManagementLoading] = useState(false);
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [managementError, setManagementError] = useState<string | null>(null);
   const dashboard = buildOrganizerDashboard(managedEvents);
@@ -176,6 +177,21 @@ export function OrganizerPanel({session}: Props) {
       setManagementError(cancelError instanceof Error ? cancelError.message : "Erro ao cancelar sessão.");
     } finally {
       setCancellingEventId(null);
+    }
+  }
+
+  async function handleDeleteManaged(event: Event) {
+    if (deletingEventId || !window.confirm(`Excluir definitivamente a sessão "${event.title}"?`)) return;
+
+    setDeletingEventId(event.id);
+    setManagementError(null);
+    try {
+      await deleteEvent(session, event.id);
+      setManagedEvents((current) => current.filter((item) => item.id !== event.id));
+    } catch (deleteError) {
+      setManagementError(deleteError instanceof Error ? deleteError.message : "Erro ao excluir sessão.");
+    } finally {
+      setDeletingEventId(null);
     }
   }
 
@@ -349,6 +365,11 @@ export function OrganizerPanel({session}: Props) {
                 <button aria-busy={cancellingEventId === event.id} className={`ghost-button danger-button ${cancellingEventId === event.id ? "is-loading" : ""}`} disabled={event.status === "CANCELLED" || cancellingEventId !== null} onClick={() => handleCancelManaged(event.id)} type="button">
                   {cancellingEventId === event.id ? "Cancelando" : "Cancelar"}
                 </button>
+                {event.status === "CANCELLED" && (
+                  <button aria-busy={deletingEventId === event.id} className={`ghost-button danger-button ${deletingEventId === event.id ? "is-loading" : ""}`} disabled={deletingEventId !== null} onClick={() => handleDeleteManaged(event)} type="button">
+                    {deletingEventId === event.id ? "Excluindo" : "Excluir"}
+                  </button>
+                )}
               </div>
             </div>
           ))}
