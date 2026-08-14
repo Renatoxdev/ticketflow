@@ -99,7 +99,7 @@ test("aplicação abre na Home mesmo com sessão persistida", async ({page}) => 
   await expect(page.getByRole("button", {name: /Área do cliente/})).toBeVisible();
 });
 
-test("evento cancelado desaparece da lista do organizador", async ({page}) => {
+test("evento cancelado permanece no histórico do organizador", async ({page}) => {
   const title = `Sessão cancelada E2E ${Date.now()}`;
   await page.route("**/organizer/external-catalog**", async (route) => {
     await route.fulfill({
@@ -131,7 +131,10 @@ test("evento cancelado desaparece da lista do organizador", async ({page}) => {
   });
   await row.getByRole("button", {name: "Cancelar"}).click();
   await expect(row.getByRole("button", {name: "Cancelando"})).toBeDisabled();
-  await expect(row).toHaveCount(0);
+  await expect(row).toBeVisible();
+  await expect(row.getByText("Cancelada", {exact: true})).toBeVisible();
+  await expect(row.getByRole("button", {name: "Editar"})).toBeDisabled();
+  await expect(row.getByRole("button", {name: "Cancelar"})).toBeDisabled();
 });
 
 test("pagamento recusado permite nova tentativa", async ({page}) => {

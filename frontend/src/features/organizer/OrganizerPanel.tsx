@@ -38,7 +38,7 @@ export function OrganizerPanel({session}: Props) {
   const [error, setError] = useState<string | null>(null);
   const [managementError, setManagementError] = useState<string | null>(null);
   const dashboard = buildOrganizerDashboard(managedEvents);
-  const visibleManagedEvents = managedEvents.filter((event) => event.status !== "CANCELLED");
+  const visibleManagedEvents = managedEvents;
 
   async function loadManagedEvents() {
     setManagementLoading(true);
