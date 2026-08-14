@@ -49,7 +49,10 @@ async def search_movies(query: str, timeout_seconds: float = 5.0) -> list[Extern
     except httpx.HTTPError as exc:
         raise ExternalIntegrationError() from exc
 
-    payload = response.json()
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise ExternalIntegrationError("Resposta inválida da busca de filmes.") from exc
     results = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(results, list):
         raise ExternalIntegrationError("Resposta inválida da busca de filmes.")

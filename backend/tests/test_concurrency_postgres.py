@@ -9,7 +9,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.errors import ConflictError, SoldOutError
+from app.auth.schemas import UserCreate
+from app.auth.service import register_user
+from app.core.config import settings
+from app.core.errors import ConflictError, NotFoundError, SoldOutError
 from app.db import Base
 from app.db.models import (
     CheckIn,
@@ -25,7 +28,7 @@ from app.db.models import (
     UserRole,
 )
 from app.events.schemas import EventCreate
-from app.events.service import create_published_event, list_available_events, list_organizer_events
+from app.events.service import build_seat_label, create_published_event, list_available_events, list_organizer_events
 from app.gate.service import check_in_ticket
 from app.tickets.service import (
     approve_pix_payment,
@@ -35,7 +38,7 @@ from app.tickets.service import (
     get_ticket_by_public_token,
 )
 
-TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/verzel_events"
+TEST_DATABASE_URL = settings.database_url
 
 
 @contextmanager
@@ -195,6 +198,26 @@ def test_event_accepts_naive_future_datetime_without_server_error() -> None:
             assert created.starts_at.tzinfo is not None
 
 
+def test_checkout_rejects_a_session_that_already_started() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
+            event = db.get(Event, event_id)
+            assert event is not None
+            event.starts_at = datetime.now(UTC) - timedelta(seconds=1)
+            db.commit()
+
+        with SessionLocal() as db:
+            with pytest.raises(NotFoundError, match="não está disponível"):
+                create_pix_payment(db, event_id, ["A1"], authenticated_customer(customer_id))
+
+
+def test_seat_labels_remain_valid_after_row_z() -> None:
+    assert build_seat_label(259) == "Z10"
+    assert build_seat_label(260) == "AA1"
+    assert build_seat_label(269) == "AA10"
+
+
 def test_concurrent_checkout_sells_last_ticket_once() -> None:
     with isolated_postgres_sessionmaker() as SessionLocal:
         with SessionLocal() as db:
@@ -216,6 +239,29 @@ def test_concurrent_checkout_sells_last_ticket_once() -> None:
 
         assert sorted(results) == ["CONFIRMED", "SOLD_OUT"]
         assert tickets_count == 1
+
+
+def test_concurrent_registration_returns_conflict_instead_of_database_error() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        email = f"concurrent-{uuid4()}@example.com"
+        payload = UserCreate(name="Concurrent User", email=email, password="safe-password", role=UserRole.CUSTOMER)
+
+        def attempt_registration() -> str:
+            with SessionLocal() as db:
+                try:
+                    register_user(db, payload)
+                    return "CREATED"
+                except ConflictError:
+                    return "CONFLICT"
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: attempt_registration(), range(2)))
+
+        with SessionLocal() as db:
+            users_count = db.query(User).filter(User.email == email).count()
+
+        assert sorted(results) == ["CONFLICT", "CREATED"]
+        assert users_count == 1
 
 
 def test_concurrent_check_in_uses_ticket_once() -> None:
@@ -326,6 +372,72 @@ def test_failed_payment_does_not_emit_ticket() -> None:
             customer = authenticated_customer(customer_id)
             with pytest.raises(ConflictError):
                 approve_pix_payment(db, payment_id, customer)
+
+
+def test_expired_payment_failure_is_persisted() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
+            customer = authenticated_customer(customer_id)
+            payment = create_pix_payment(db, event_id, ["A1"], customer)
+            payment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            payment_id = payment.id
+            db.commit()
+
+        with SessionLocal() as db:
+            customer = authenticated_customer(customer_id)
+            with pytest.raises(ConflictError, match="expirou"):
+                approve_pix_payment(db, payment_id, customer)
+
+        with SessionLocal() as db:
+            payment = db.get(Payment, payment_id)
+            assert payment is not None
+            assert payment.status == PaymentStatus.FAILED
+            assert {seat.status for seat in payment.seats} == {PaymentStatus.FAILED}
+            assert db.query(Ticket).filter(Ticket.event_id == event_id).count() == 0
+
+
+def test_approve_and_fail_payment_cannot_leave_inconsistent_state() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, _ = seed_capacity_event(db, capacity=10)
+            payment = create_pix_payment(db, event_id, ["A1"], authenticated_customer(customer_id))
+            payment_id = payment.id
+
+        def approve() -> str:
+            with SessionLocal() as db:
+                try:
+                    approve_pix_payment(db, payment_id, authenticated_customer(customer_id))
+                    return "PAID"
+                except ConflictError:
+                    return "CONFLICT"
+
+        def fail() -> str:
+            with SessionLocal() as db:
+                try:
+                    fail_pix_payment(db, payment_id, authenticated_customer(customer_id))
+                    return "FAILED"
+                except ConflictError:
+                    return "CONFLICT"
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            approve_result = executor.submit(approve)
+            fail_result = executor.submit(fail)
+            results = {approve_result.result(), fail_result.result()}
+
+        with SessionLocal() as db:
+            payment = db.get(Payment, payment_id)
+            assert payment is not None
+            tickets_count = db.query(Ticket).filter(Ticket.event_id == event_id).count()
+
+            assert results in ({"PAID", "CONFLICT"}, {"FAILED", "CONFLICT"})
+            if payment.status == PaymentStatus.PAID:
+                assert tickets_count == 1
+                assert {seat.status for seat in payment.seats} == {PaymentStatus.PAID}
+            else:
+                assert payment.status == PaymentStatus.FAILED
+                assert tickets_count == 0
+                assert {seat.status for seat in payment.seats} == {PaymentStatus.FAILED}
 
 
 def test_pending_payment_reserves_seat_until_it_fails() -> None:

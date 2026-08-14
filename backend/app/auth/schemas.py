@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.db.models import UserRole
 
@@ -10,6 +10,16 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=4, max_length=128)
     role: UserRole
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("O nome precisa ter pelo menos 2 caracteres.")
+        return cleaned
 
 
 class UserRead(BaseModel):
@@ -24,6 +34,8 @@ class UserRead(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class TokenResponse(BaseModel):

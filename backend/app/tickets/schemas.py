@@ -12,6 +12,8 @@ class PaymentCreate(BaseModel):
     seat_label: str | None = Field(default=None, min_length=2, max_length=8)
     seat_labels: list[str] | None = None
 
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
     @field_validator("seat_labels")
     @classmethod
     def validate_seat_labels(cls, value: list[str] | None) -> list[str] | None:

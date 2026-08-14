@@ -138,14 +138,19 @@ def cancel_organizer_event(db: Session, event_id: UUID, organizer: User) -> Even
     return event
 
 def build_seat_label(index: int) -> str:
-    row = chr(ord("A") + (index // 10))
+    row_index = index // 10
+    row = ""
+    while row_index >= 0:
+        row_index, remainder = divmod(row_index, 26)
+        row = chr(ord("A") + remainder) + row
+        row_index -= 1
     number = (index % 10) + 1
     return f"{row}{number}"
 
 
 def list_event_seats(db: Session, event_id: UUID) -> list[SeatRead]:
     event = db.get(Event, event_id)
-    if event is None or event.status != EventStatus.PUBLISHED:
+    if event is None or event.status != EventStatus.PUBLISHED or event.starts_at <= datetime.now(UTC):
         raise NotFoundError("Sessão não encontrada.")
 
     now = datetime.now(UTC)

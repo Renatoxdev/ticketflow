@@ -12,6 +12,7 @@ export function GatePanel({session}: Props) {
   const [token, setToken] = useState("");
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [result, setResult] = useState<GateValidationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
@@ -29,6 +30,8 @@ export function GatePanel({session}: Props) {
         setSelectedEventId((current) => current || result[0]?.id || "");
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Não foi possível carregar as sessões.");
+      } finally {
+        setEventsLoading(false);
       }
     }
 
@@ -151,8 +154,8 @@ export function GatePanel({session}: Props) {
         <form onSubmit={handleSubmit}>
           <label>
             Sessão da entrada
-            <select value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)} required>
-              <option value="">Selecione uma sessão</option>
+            <select aria-busy={eventsLoading} disabled={eventsLoading} value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)} required>
+              <option value="">{eventsLoading ? "Carregando sessões..." : "Selecione uma sessão"}</option>
               {events.map((event) => (
                 <option key={event.id} value={event.id}>
                   {event.title} · {new Date(event.startsAt).toLocaleString("pt-BR")} · {event.venue}

@@ -79,9 +79,10 @@ def create_pix_payment(db: Session, event_id: UUID, seat_labels: list[str], cust
 
 
 def approve_pix_payment(db: Session, payment_id: UUID, customer: User) -> list[Ticket]:
+    payment_expired = False
+    tickets: list[Ticket] = []
     try:
         with db.begin():
-            release_expired_payments(db)
             payment = db.scalar(select(Payment).where(Payment.id == payment_id).with_for_update())
             if payment is None or payment.customer_id != customer.id:
                 raise NotFoundError("Não encontramos esta cobrança Pix.")
@@ -91,35 +92,36 @@ def approve_pix_payment(db: Session, payment_id: UUID, customer: User) -> list[T
                 payment.status = PaymentStatus.FAILED
                 for payment_seat in payment.seats:
                     payment_seat.status = PaymentStatus.FAILED
-                raise ConflictError("Esta cobrança Pix expirou. Gere uma nova tentativa de pagamento.")
-            if payment.status == PaymentStatus.PAID:
+                payment_expired = True
+            elif payment.status == PaymentStatus.PAID:
                 tickets = [seat.ticket for seat in payment.seats if seat.ticket is not None]
                 if not tickets:
                     raise ConflictError("Pagamento aprovado sem ingresso vinculado.")
-                return tickets
+            else:
+                event = get_event_for_checkout(db, payment.event_id, payment.seat_label, ignored_payment_id=payment.id)
+                payment_seats = payment.seats or [
+                    PaymentSeat(payment_id=payment.id, event_id=payment.event_id, seat_label=payment.seat_label)
+                ]
 
-            event = get_event_for_checkout(db, payment.event_id, payment.seat_label, ignored_payment_id=payment.id)
-            tickets = []
-            payment_seats = payment.seats or [
-                PaymentSeat(payment_id=payment.id, event_id=payment.event_id, seat_label=payment.seat_label)
-            ]
+                for payment_seat in payment_seats:
+                    ensure_seat_available(db, event, payment_seat.seat_label, ignored_payment_id=payment.id)
+                    ticket = build_ticket(event, customer, payment_seat.seat_label)
+                    db.add(ticket)
+                    db.flush()
+                    payment_seat.status = PaymentStatus.PAID
+                    payment_seat.ticket_id = ticket.id
+                    tickets.append(ticket)
 
-            for payment_seat in payment_seats:
-                ensure_seat_available(db, event, payment_seat.seat_label, ignored_payment_id=payment.id)
-                ticket = build_ticket(event, customer, payment_seat.seat_label)
-                db.add(ticket)
-                db.flush()
-                payment_seat.status = PaymentStatus.PAID
-                payment_seat.ticket_id = ticket.id
-                tickets.append(ticket)
-
-            payment.status = PaymentStatus.PAID
-            payment.ticket_id = tickets[0].id
+                payment.status = PaymentStatus.PAID
+                payment.ticket_id = tickets[0].id
     except IntegrityError as exc:
         db.rollback()
         if is_unique_constraint_error(exc):
             raise ConflictError("Este assento já foi vendido.") from exc
         raise
+
+    if payment_expired:
+        raise ConflictError("Esta cobrança Pix expirou. Gere uma nova tentativa de pagamento.")
 
     for ticket in tickets:
         db.refresh(ticket)
@@ -127,16 +129,17 @@ def approve_pix_payment(db: Session, payment_id: UUID, customer: User) -> list[T
 
 
 def fail_pix_payment(db: Session, payment_id: UUID, customer: User) -> Payment:
-    payment = db.scalar(select(Payment).where(Payment.id == payment_id))
-    if payment is None or payment.customer_id != customer.id:
-        raise NotFoundError("Não encontramos esta cobrança Pix.")
-    if payment.status == PaymentStatus.PAID:
-        raise ConflictError("Pagamento já aprovado não pode ser recusado.")
+    with db.begin():
+        payment = db.scalar(select(Payment).where(Payment.id == payment_id).with_for_update())
+        if payment is None or payment.customer_id != customer.id:
+            raise NotFoundError("Não encontramos esta cobrança Pix.")
+        if payment.status == PaymentStatus.PAID:
+            raise ConflictError("Pagamento já aprovado não pode ser recusado.")
 
-    payment.status = PaymentStatus.FAILED
-    for payment_seat in payment.seats:
-        payment_seat.status = PaymentStatus.FAILED
-    db.commit()
+        payment.status = PaymentStatus.FAILED
+        for payment_seat in payment.seats:
+            payment_seat.status = PaymentStatus.FAILED
+
     db.refresh(payment)
     return payment
 
@@ -187,7 +190,11 @@ def get_event_for_checkout(
     ignored_payment_id: UUID | None = None,
 ) -> Event:
     event = db.scalar(select(Event).where(Event.id == event_id).with_for_update())
-    if event is None or event.status != EventStatus.PUBLISHED:
+    if (
+        event is None
+        or event.status != EventStatus.PUBLISHED
+        or event.starts_at <= datetime.now(UTC)
+    ):
         raise NotFoundError("Esta sessão não está disponível para compra.")
 
     valid_seats = {build_seat_label(index) for index in range(event.capacity)}

@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import LoginRequest, UserCreate
@@ -8,24 +9,29 @@ from app.db.models import User
 
 
 def register_user(db: Session, data: UserCreate) -> User:
-    existing_user = db.scalar(select(User).where(User.email == data.email))
+    email = str(data.email).lower()
+    existing_user = db.scalar(select(User).where(User.email == email))
     if existing_user is not None:
         raise ConflictError("Já existe usuário com este email.")
 
     user = User(
         name=data.name,
-        email=str(data.email),
+        email=email,
         password_hash=hash_password(data.password),
         role=data.role,
     )
-    db.add(user)
-    db.commit()
+    try:
+        db.add(user)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError("Já existe usuário com este email.") from exc
     db.refresh(user)
     return user
 
 
 def login_user(db: Session, data: LoginRequest) -> tuple[str, User]:
-    user = db.scalar(select(User).where(User.email == data.email))
+    user = db.scalar(select(User).where(User.email == str(data.email).lower()))
     if user is None or not verify_password(data.password, user.password_hash):
         raise ForbiddenError("Email ou senha inválidos.")
 

@@ -133,7 +133,7 @@ Serviços locais:
 
 ### 3. Rodar migrations e seed manualmente
 
-Normalmente isso j? acontece na inicializa??o do backend. Se precisar for?ar manualmente em outro terminal:
+Normalmente isso já acontece na inicialização do backend. Se precisar forçar manualmente em outro terminal:
 
 ```bash
 docker compose exec backend alembic upgrade head
@@ -182,6 +182,17 @@ O seed cria usuários de teste e uma sessão publicada com assentos disponíveis
 3. Ler o QR Code pela câmera do dispositivo ou digitar o token/link.
 4. Validar a entrada.
 5. Receber retorno claro: válido, inválido, já utilizado ou evento errado.
+
+## Decisões Técnicas
+
+- **API organizada por domínio:** autenticação, eventos, organização, ingressos e portaria possuem routers, schemas e services próprios. Os routers tratam HTTP e autorização; os services concentram regras e transações; os schemas Pydantic validam o contrato de entrada e saída.
+- **PostgreSQL como fonte de verdade:** sessões, reservas, pagamentos, ingressos e check-ins não dependem do estado React. O frontend recarrega esses dados pela API, e índices parciais no banco impedem assentos ativos ou reservas pendentes duplicadas mesmo sob concorrência.
+- **Reserva separada do ingresso:** gerar o Pix cria `Payment` e `PaymentSeat` pendentes. O `Ticket` só nasce na aprovação. Isso evita apresentar uma reserva ainda não paga como ingresso confirmado e permite liberar os lugares após recusa ou expiração.
+- **Transações e bloqueios pessimistas:** checkout, aprovação/recusa e check-in usam transações e bloqueios de linha nos pontos disputados. Constraints únicas permanecem como última barreira caso duas requisições concorrentes atravessem a aplicação.
+- **JWT sem estado no servidor:** a API valida o token e busca o usuário atual antes de autorizar cada perfil. No navegador, a sessão é persistida apenas para evitar novo login; dados de negócio continuam vindo do backend.
+- **WebSocket com fallback:** o mapa tenta atualização ao vivo, mas retorna para polling quando o canal não está disponível. A decisão mantém a escolha de assentos utilizável em ambientes que bloqueiam WebSocket.
+- **Pagamento deliberadamente simulado:** o projeto demonstra a máquina de estados e a atomicidade do checkout sem fingir integração financeira real. PSP, webhook, estorno financeiro e antifraude estão explicitamente fora desta versão.
+- **Trade-off de prazo:** foram priorizados o ciclo completo e suas falhas críticas — persistência, concorrência, idempotência, reload e responsividade — em vez de funcionalidades periféricas como recuperação de senha, email e revenda.
 
 ## Regras Importantes
 
@@ -270,12 +281,12 @@ npm run test:e2e
 Resultado da última verificação local:
 
 ```text
-17 passed
+28 passed
 All checks passed!
 npm run build OK
-Playwright E2E: 6 passed (incluindo loading, mobile e tablet)
-docker build OK
-container único: /health OK, home OK, criação/listagem de sessão OK
+Playwright E2E: 10 passed (incluindo fluxo completo, persistência, Home, cancelamento, falha de API, loading, mobile e tablet)
+docker compose build OK
+migrations em banco PostgreSQL vazio: OK
 ```
 
 ## Deploy
@@ -284,7 +295,7 @@ O projeto possui um `Dockerfile` na raiz para publicar frontend e backend em um 
 
 URL publicada:
 
-- Preencha aqui a URL ativa do serviço após confirmar que `/health` responde com `{"status":"ok"}`.
+- https://ticketflow-1-sszk.onrender.com/
 
 Para o deploy funcionar corretamente, o serviço precisa ter um banco PostgreSQL vinculado, as variáveis de ambiente configuradas e o seed executado na inicialização. O comando do container já roda migrations e seed antes de iniciar a API.
 
@@ -307,11 +318,11 @@ alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0
 
 ## Uso De IA
 
-Usei IA para apoiar tarefas concretas, mas revisei manualmente cada alteração e validei os resultados com testes. Ela foi utilizada para decompor o enunciado em fluxos verificáveis, investigar o problema de persistência após reload, revisar regras de concorrência e reserva de assentos, levantar casos extremos do checkout, reconstruir a camada visual e preparar testes automatizados.
+Usei o OpenAI Codex como ferramenta de IA para apoiar tarefas concretas, mas revisei manualmente cada alteração e validei os resultados com testes. Ele foi utilizado para decompor o enunciado em fluxos verificáveis, investigar o problema de persistência após reload, revisar regras de concorrência e reserva de assentos, levantar casos extremos do checkout, reconstruir a camada visual e preparar testes automatizados.
 
 A persistência foi confirmada por um teste E2E que cria uma sessão, recarrega a página e procura o mesmo registro retornado pela API. As regras transacionais de capacidade, reserva, emissão e disputa simultânea por assentos foram exercitadas em testes integrados com PostgreSQL. O fluxo de compra, pagamento, emissão e segundo check-in com o mesmo token foi validado pelo Playwright. A área do cliente também foi verificada contra overflow horizontal em viewports de 390 px e 820 px.
 
-As sugestões geradas por IA não foram consideradas corretas apenas porque o código compilava. As alterações foram revisadas no código e verificadas com pytest, Ruff, build TypeScript/Vite, Playwright e construção do container de produção. As decisões de arquitetura, escopo do produto e aceitação final das mudanças permaneceram sob minha responsabilidade.
+As sugestões geradas por IA não foram consideradas corretas apenas porque o código compilava. As alterações foram revisadas no código e verificadas com pytest, Ruff, build TypeScript/Vite, Playwright e construção do container de produção. Sem delegar essas decisões à IA, defini o recorte final do produto, mantive a escolha pelo fluxo de cinema com mapa de assentos, revisei o comportamento entregue e decidi quais sugestões seriam aceitas ou descartadas. As decisões de arquitetura, escopo e aceitação final permaneceram sob minha responsabilidade.
 
 ## Limites Da Versão
 

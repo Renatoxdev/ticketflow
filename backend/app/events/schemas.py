@@ -18,6 +18,8 @@ class EventBase(BaseModel):
     external_source: str | None = Field(default=None, max_length=50)
     external_id: str | None = Field(default=None, max_length=120)
 
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
 
 class EventCreate(EventBase):
     pass
@@ -31,6 +33,8 @@ class EventUpdate(BaseModel):
     venue: str | None = Field(default=None, min_length=2, max_length=200)
     capacity: int | None = Field(default=None, gt=0)
     price: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
 class SeatRead(BaseModel):

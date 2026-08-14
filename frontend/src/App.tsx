@@ -77,7 +77,7 @@ function viewForRole(role: UserRole): Mode {
 
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
-  const [view, setView] = useState<View>(() => (session ? viewForRole(session.role) : "home"));
+  const [view, setView] = useState<View>("home");
   const [sharedTicket, setSharedTicket] = useState<TicketShare | null>(null);
   const [sharedError, setSharedError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);

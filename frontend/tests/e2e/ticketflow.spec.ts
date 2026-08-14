@@ -81,8 +81,57 @@ test("organizador cria sessão e ela permanece após recarregar", async ({page})
   await expect(page.getByText(/Sessão publicada/)).toBeVisible();
 
   await page.reload();
+  await expect(page.getByRole("heading", {name: /Bilheteria online/})).toBeVisible();
+  await page.getByRole("button", {name: /Área do organizador/}).click();
   await expect(page.getByRole("heading", {name: /Sessões cadastradas/})).toBeVisible();
   await expect(page.getByText(title).first()).toBeVisible();
+});
+
+test("aplicação abre na Home mesmo com sessão persistida", async ({page}) => {
+  await page.goto("/");
+  await page.getByRole("button", {name: /Cliente user1/}).click();
+  await expect(page.getByRole("heading", {name: /Escolha seu filme/})).toBeVisible();
+
+  await page.reload();
+
+  await expect(page.getByRole("heading", {name: /Bilheteria online/})).toBeVisible();
+  await expect(page.locator(".rail-status").getByText("user1@ticketflow.com", {exact: true})).toBeVisible();
+  await expect(page.getByRole("button", {name: /Área do cliente/})).toBeVisible();
+});
+
+test("evento cancelado desaparece da lista do organizador", async ({page}) => {
+  const title = `Sessão cancelada E2E ${Date.now()}`;
+  await page.route("**/organizer/external-catalog**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([{
+        external_source: "e2e",
+        external_id: `cancel-${Date.now()}`,
+        title,
+        description: "Sessão criada para validar o desaparecimento após cancelamento.",
+        image_url: null,
+        raw_payload: {},
+      }]),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", {name: /Organizador demo/}).click();
+  await page.getByLabel("Buscar filme ou série").fill("cancelar");
+  await page.getByRole("button", {name: "Buscar"}).click();
+  await page.locator(".catalog-item").first().click();
+  await page.getByLabel("Sala ou cinema").fill("Sala cancelamento");
+  await page.getByRole("button", {name: /Publicar sessão/}).click();
+
+  const row = page.locator(".management-row").filter({hasText: title});
+  await expect(row).toBeVisible();
+  await page.route("**/organizer/events/*/cancel", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await row.getByRole("button", {name: "Cancelar"}).click();
+  await expect(row.getByRole("button", {name: "Cancelando"})).toBeDisabled();
+  await expect(row).toHaveCount(0);
 });
 
 test("pagamento recusado permite nova tentativa", async ({page}) => {
@@ -114,6 +163,37 @@ test("carregamento do catálogo oferece feedback visível", async ({page}) => {
   await expect(showcase.getByRole("button", {name: "Filtrando"})).toBeVisible();
 });
 
+test("falha ao carregar ingressos não é exibida como lista vazia", async ({page}) => {
+  await page.route("**/customer/tickets", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({detail: "Falha simulada ao carregar ingressos."}),
+    });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", {name: /Cliente user1/}).click();
+
+  await expect(page.getByText("Falha simulada ao carregar ingressos.")).toBeVisible();
+  await expect(page.getByText("Nenhum ingresso emitido")).toHaveCount(0);
+});
+
+test("portaria sinaliza carregamento inicial das sessões", async ({page}) => {
+  await page.route("**/events", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", {name: /Portaria demo/}).click();
+
+  const eventSelect = page.getByLabel("Sessão da entrada");
+  await expect(eventSelect).toBeDisabled();
+  await expect(eventSelect).toContainText("Carregando sessões...");
+  await expect(eventSelect).toBeEnabled();
+});
+
 test("área do cliente não cria overflow em mobile e tablet", async ({page}) => {
   await page.setViewportSize({width: 390, height: 844});
   await page.goto("/");
@@ -125,6 +205,8 @@ test("área do cliente não cria overflow em mobile e tablet", async ({page}) =>
 
   await page.setViewportSize({width: 820, height: 1180});
   await page.reload();
+  await expect(page.getByRole("heading", {name: /Bilheteria online/})).toBeVisible();
+  await page.getByRole("button", {name: /Área do cliente/}).click();
   await expect(page.getByRole("heading", {name: /Escolha seu filme/})).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

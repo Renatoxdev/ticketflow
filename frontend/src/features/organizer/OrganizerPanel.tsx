@@ -34,9 +34,11 @@ export function OrganizerPanel({session}: Props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [managementLoading, setManagementLoading] = useState(false);
+  const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [managementError, setManagementError] = useState<string | null>(null);
   const dashboard = buildOrganizerDashboard(managedEvents);
+  const visibleManagedEvents = managedEvents.filter((event) => event.status !== "CANCELLED");
 
   async function loadManagedEvents() {
     setManagementLoading(true);
@@ -108,7 +110,7 @@ export function OrganizerPanel({session}: Props) {
     try {
       setPublishedEvent(await createEvent(session, payload));
       setForm(initialForm);
-      loadManagedEvents();
+      await loadManagedEvents();
     } catch (publishError) {
       setError(publishError instanceof Error ? publishError.message : "Erro ao publicar sessão.");
     } finally {
@@ -161,6 +163,9 @@ export function OrganizerPanel({session}: Props) {
   }
 
   async function handleCancelManaged(eventId: string) {
+    if (cancellingEventId) return;
+
+    setCancellingEventId(eventId);
     setManagementError(null);
 
     try {
@@ -169,6 +174,8 @@ export function OrganizerPanel({session}: Props) {
       await loadManagedEvents();
     } catch (cancelError) {
       setManagementError(cancelError instanceof Error ? cancelError.message : "Erro ao cancelar sessão.");
+    } finally {
+      setCancellingEventId(null);
     }
   }
 
@@ -319,14 +326,14 @@ export function OrganizerPanel({session}: Props) {
         </div>
 
         <div className="management-list">
-          {managedEvents.length === 0 && (
+          {visibleManagedEvents.length === 0 && (
             <div className="empty-state">
               <strong>Nenhuma sessão cadastrada</strong>
               <span>As sessões publicadas aparecem aqui para edição ou cancelamento.</span>
             </div>
           )}
 
-          {managedEvents.map((event) => (
+          {visibleManagedEvents.map((event) => (
             <div className="management-row" key={event.id}>
               <div>
                 <strong>{event.title}</strong>
@@ -336,11 +343,11 @@ export function OrganizerPanel({session}: Props) {
                 <StatusBadge status={event.status} />
               </div>
               <div className="management-actions">
-                <button className="ghost-button" disabled={event.status === "CANCELLED"} onClick={() => startEdit(event)} type="button">
+                <button className="ghost-button" disabled={event.status === "CANCELLED" || cancellingEventId !== null} onClick={() => startEdit(event)} type="button">
                   Editar
                 </button>
-                <button className="ghost-button danger-button" disabled={event.status === "CANCELLED"} onClick={() => handleCancelManaged(event.id)} type="button">
-                  Cancelar
+                <button aria-busy={cancellingEventId === event.id} className={`ghost-button danger-button ${cancellingEventId === event.id ? "is-loading" : ""}`} disabled={event.status === "CANCELLED" || cancellingEventId !== null} onClick={() => handleCancelManaged(event.id)} type="button">
+                  {cancellingEventId === event.id ? "Cancelando" : "Cancelar"}
                 </button>
               </div>
             </div>

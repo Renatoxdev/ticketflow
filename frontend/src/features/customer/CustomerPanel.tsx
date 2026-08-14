@@ -27,6 +27,8 @@ export function CustomerPanel({session}: Props) {
   const [tickets, setTickets] = useState<TicketShare[]>([]);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [myTickets, setMyTickets] = useState<CustomerTicket[]>([]);
+  const [myTicketsLoading, setMyTicketsLoading] = useState(false);
+  const [myTicketsError, setMyTicketsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [seatLoading, setSeatLoading] = useState(false);
   const [seatSyncMode, setSeatSyncMode] = useState<"connecting" | "live" | "polling">("polling");
@@ -64,10 +66,14 @@ export function CustomerPanel({session}: Props) {
   }, []);
 
   async function loadMyTickets() {
+    setMyTicketsLoading(true);
+    setMyTicketsError(null);
     try {
       setMyTickets(await listCustomerTickets(session));
-    } catch {
-      setMyTickets([]);
+    } catch (ticketsError) {
+      setMyTicketsError(ticketsError instanceof Error ? ticketsError.message : "Erro ao carregar seus ingressos.");
+    } finally {
+      setMyTicketsLoading(false);
     }
   }
 
@@ -548,13 +554,15 @@ export function CustomerPanel({session}: Props) {
             <p className="section-label">Meus ingressos</p>
             <h3>Ingressos emitidos</h3>
           </div>
-          <button className="ghost-button" onClick={loadMyTickets} type="button">
-            Atualizar
+          <button aria-busy={myTicketsLoading} className={`ghost-button ${myTicketsLoading ? "is-loading" : ""}`} disabled={myTicketsLoading} onClick={loadMyTickets} type="button">
+            {myTicketsLoading ? "Atualizando" : "Atualizar"}
           </button>
         </div>
 
+        {myTicketsError && <p className="feedback danger">{myTicketsError}</p>}
+
         <div className="my-ticket-list">
-          {myTickets.length === 0 && (
+          {!myTicketsLoading && !myTicketsError && myTickets.length === 0 && (
             <div className="empty-state">
               <strong>Nenhum ingresso emitido</strong>
               <span>Depois do pagamento simulado aprovado, seus ingressos aparecem aqui.</span>
