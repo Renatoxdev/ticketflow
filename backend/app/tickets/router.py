@@ -7,7 +7,6 @@ from app.auth.dependencies import require_role
 from app.db.models import User, UserRole
 from app.db.session import get_db
 from app.tickets.schemas import (
-    CheckoutCreate,
     CustomerTicketRead,
     PaymentCreate,
     PaymentRead,
@@ -17,7 +16,6 @@ from app.tickets.schemas import (
 )
 from app.tickets.service import (
     approve_pix_payment,
-    buy_ticket,
     cancel_customer_ticket,
     create_pix_payment,
     fail_pix_payment,
@@ -27,15 +25,6 @@ from app.tickets.service import (
 )
 
 router = APIRouter(tags=["tickets"])
-
-
-@router.post("/checkout", response_model=TicketRead, status_code=201)
-def checkout(
-    payload: CheckoutCreate,
-    customer: User = Depends(require_role(UserRole.CUSTOMER)),
-    db: Session = Depends(get_db),
-) -> TicketRead:
-    return buy_ticket(db, payload.event_id, payload.seat_label, customer)
 
 
 @router.post("/payments/pix", response_model=PaymentRead, status_code=201)

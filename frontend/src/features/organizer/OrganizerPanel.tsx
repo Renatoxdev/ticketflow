@@ -7,8 +7,15 @@ type Props = {
   session: AuthSession;
 };
 
+function defaultStartsAt() {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  date.setHours(20, 0, 0, 0);
+  return toDatetimeLocal(date.toISOString());
+}
+
 const initialForm = {
-  startsAt: "",
+  startsAt: defaultStartsAt(),
   venue: "",
   capacity: "50",
   price: "25.00",
@@ -79,11 +86,18 @@ export function OrganizerPanel({session}: Props) {
     setSaving(true);
     setError(null);
 
+    const startsAt = new Date(form.startsAt);
+    if (Number.isNaN(startsAt.getTime()) || startsAt <= new Date()) {
+      setSaving(false);
+      setError("Escolha uma data e horário futuros para publicar a sessão.");
+      return;
+    }
+
     const payload: CreateEventInput = {
       title: selected.title,
       description: form.description || selected.description || `Sessão baseada em ${selected.title}.`,
       imageUrl: selected.imageUrl,
-      startsAt: new Date(form.startsAt).toISOString(),
+      startsAt: startsAt.toISOString(),
       venue: form.venue,
       capacity: Number(form.capacity),
       price: form.price,
@@ -120,9 +134,16 @@ export function OrganizerPanel({session}: Props) {
     setSaving(true);
     setManagementError(null);
 
+    const startsAt = new Date(editForm.startsAt);
+    if (Number.isNaN(startsAt.getTime()) || startsAt <= new Date()) {
+      setSaving(false);
+      setManagementError("Escolha uma data e horário futuros para salvar a sessão.");
+      return;
+    }
+
     const payload: UpdateEventInput = {
       description: editForm.description,
-      startsAt: new Date(editForm.startsAt).toISOString(),
+      startsAt: startsAt.toISOString(),
       venue: editForm.venue,
       capacity: Number(editForm.capacity),
       price: editForm.price,
@@ -212,6 +233,7 @@ export function OrganizerPanel({session}: Props) {
               <label>
                 Quando acontece
                 <input
+                  min={toDatetimeLocal(new Date().toISOString())}
                   value={form.startsAt}
                   onChange={(event) => setForm({...form, startsAt: event.target.value})}
                   required
@@ -303,8 +325,9 @@ export function OrganizerPanel({session}: Props) {
               <div>
                 <strong>{event.title}</strong>
                 <span>
-                  {new Date(event.startsAt).toLocaleString("pt-BR")} · {event.venue} · {event.status}
+                  {new Date(event.startsAt).toLocaleString("pt-BR")} · {event.venue}
                 </span>
+                <StatusBadge status={event.status} />
               </div>
               <div className="management-actions">
                 <button className="ghost-button" disabled={event.status === "CANCELLED"} onClick={() => startEdit(event)} type="button">
@@ -323,6 +346,7 @@ export function OrganizerPanel({session}: Props) {
             <label>
               Quando acontece
               <input
+                min={toDatetimeLocal(new Date().toISOString())}
                 value={editForm.startsAt}
                 onChange={(event) => setEditForm({...editForm, startsAt: event.target.value})}
                 required
@@ -380,6 +404,12 @@ function DashboardMetric({label, value}: {label: string; value: string | number}
       <strong>{value}</strong>
     </div>
   );
+}
+
+function StatusBadge({status}: {status: Event["status"]}) {
+  const label = status === "PUBLISHED" ? "Publicada" : status === "CANCELLED" ? "Cancelada" : "Rascunho";
+
+  return <span className={`status-badge ${status.toLowerCase()}`}>{label}</span>;
 }
 
 function buildOrganizerDashboard(events: Event[]) {

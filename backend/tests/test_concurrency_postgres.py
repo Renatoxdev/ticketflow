@@ -24,6 +24,8 @@ from app.db.models import (
     User,
     UserRole,
 )
+from app.events.schemas import EventCreate
+from app.events.service import create_published_event, list_available_events, list_organizer_events
 from app.gate.service import check_in_ticket
 from app.tickets.service import (
     approve_pix_payment,
@@ -110,6 +112,87 @@ def authenticated_customer(customer_id: UUID) -> User:
         password_hash="hash",
         role=UserRole.CUSTOMER,
     )
+
+
+def test_created_event_remains_visible_to_organizer_and_customer() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            _, _, _, organizer_id = seed_capacity_event(db, capacity=10)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+
+            created = create_published_event(
+                db,
+                organizer,
+                EventCreate(
+                    title="Published Session",
+                    description="Sessão criada para testar persistência e listagem.",
+                    starts_at=datetime.now(UTC) + timedelta(days=3),
+                    venue="Sala Persistência",
+                    capacity=20,
+                    price=Decimal("19.90"),
+                    external_source="test",
+                    external_id="published-session",
+                ),
+            )
+
+        with SessionLocal() as db:
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+            organizer_events = list_organizer_events(db, organizer)
+            customer_events = list_available_events(db)
+
+            assert any(event.id == created.id for event in organizer_events)
+            assert any(event.id == created.id for event in customer_events)
+
+
+def test_event_cannot_be_created_in_the_past() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            _, _, _, organizer_id = seed_capacity_event(db, capacity=10)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+
+            with pytest.raises(ConflictError):
+                create_published_event(
+                    db,
+                    organizer,
+                    EventCreate(
+                        title="Past Session",
+                        description="Sessão inválida porque já ficou no passado.",
+                        starts_at=datetime.now(UTC) - timedelta(minutes=5),
+                        venue="Sala Passado",
+                        capacity=20,
+                        price=Decimal("19.90"),
+                        external_source="test",
+                        external_id="past-session",
+                    ),
+                )
+
+
+def test_event_accepts_naive_future_datetime_without_server_error() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            _, _, _, organizer_id = seed_capacity_event(db, capacity=10)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+
+            created = create_published_event(
+                db,
+                organizer,
+                EventCreate(
+                    title="Naive Future Session",
+                    description="Sessao criada com data sem timezone explicito.",
+                    starts_at=datetime.now() + timedelta(days=2),
+                    venue="Sala Timezone",
+                    capacity=20,
+                    price=Decimal("19.90"),
+                    external_source="test",
+                    external_id="naive-future-session",
+                ),
+            )
+
+            assert created.starts_at.tzinfo is not None
 
 
 def test_concurrent_checkout_sells_last_ticket_once() -> None:
@@ -272,6 +355,27 @@ def test_pending_payment_reserves_seat_until_it_fails() -> None:
                 Payment.status == PaymentStatus.PENDING,
             ).count()
             assert pending_count == 1
+
+
+def test_cancelled_event_marks_pending_payments_as_failed() -> None:
+    with isolated_postgres_sessionmaker() as SessionLocal:
+        with SessionLocal() as db:
+            event_id, customer_id, _, organizer_id = seed_capacity_event(db, capacity=10)
+            customer = authenticated_customer(customer_id)
+            organizer = db.get(User, organizer_id)
+            assert organizer is not None
+            payment = create_pix_payment(db, event_id, ["A1"], customer)
+            payment_id = payment.id
+
+            from app.events.service import cancel_organizer_event
+
+            cancel_organizer_event(db, event_id, organizer)
+
+        with SessionLocal() as db:
+            payment = db.get(Payment, payment_id)
+            assert payment is not None
+            assert payment.status == PaymentStatus.FAILED
+            assert {seat.status for seat in payment.seats} == {PaymentStatus.FAILED}
 
 
 def test_approved_payment_emits_ticket_and_shared_token_can_be_loaded() -> None:

@@ -10,6 +10,7 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 - Três perfis: organizador, cliente e portaria.
 - Busca de filmes na TMDb pelo backend.
 - Criação, edição, listagem, cancelamento e dashboard de sessões pelo organizador.
+- Criação e edição de sessões apenas com data e horário futuros.
 - Vitrine de sessões em cartaz com pôsteres, data, sala, preço e ocupação.
 - Busca e filtros por nome/sala, período e preço máximo.
 - Mapa de assentos com corredor central e seleção de um ou mais lugares.
@@ -98,7 +99,7 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/verzel_events
 JWT_SECRET=change-me-in-development
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_MINUTES=60
-CORS_ORIGINS=["http://localhost:5173"]
+CORS_ORIGINS=http://localhost:5173
 TMDB_API_KEY=sua_chave_da_tmdb
 ```
 
@@ -110,7 +111,17 @@ VITE_API_BASE_URL=http://localhost:8000
 
 ### 2. Subir a aplicação
 
+Se estiver usando PowerShell e quiser passar a chave da TMDb para o Docker Compose:
+
+```powershell
+$env:TMDB_API_KEY="sua_chave_da_tmdb"
+docker compose up --build
+```
+
+Em Git Bash, Linux ou macOS:
+
 ```bash
+export TMDB_API_KEY=sua_chave_da_tmdb
 docker compose up --build
 ```
 
@@ -120,9 +131,9 @@ Serviços locais:
 - Backend: `http://localhost:8000`
 - PostgreSQL: `localhost:5432`
 
-### 3. Rodar migrations e seed
+### 3. Rodar migrations e seed manualmente
 
-Em outro terminal:
+Normalmente isso j? acontece na inicializa??o do backend. Se precisar for?ar manualmente em outro terminal:
 
 ```bash
 docker compose exec backend alembic upgrade head
@@ -259,11 +270,12 @@ npm run test:e2e
 Resultado da última verificação local:
 
 ```text
-13 passed
+17 passed
 All checks passed!
 npm run build OK
-Playwright E2E: 3 passed
+Playwright E2E: 4 passed
 docker build OK
+container único: /health OK, home OK, criação/listagem de sessão OK
 ```
 
 ## Deploy
@@ -272,7 +284,7 @@ O projeto possui um `Dockerfile` na raiz para publicar frontend e backend em um 
 
 URL publicada:
 
-- `https://ticketflow-1-szsk.onrender.com`
+- Preencha aqui a URL ativa do serviço após confirmar que `/health` responde com `{"status":"ok"}`.
 
 Para o deploy funcionar corretamente, o serviço precisa ter um banco PostgreSQL vinculado, as variáveis de ambiente configuradas e o seed executado na inicialização. O comando do container já roda migrations e seed antes de iniciar a API.
 
@@ -283,7 +295,7 @@ DATABASE_URL=internal_database_url_do_postgres
 JWT_SECRET=uma_string_secreta_forte
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_MINUTES=60
-CORS_ORIGINS=["https://ticketflow-1-szsk.onrender.com"]
+CORS_ORIGINS=https://sua-url-ativa.onrender.com
 TMDB_API_KEY=sua_chave_da_tmdb
 ```
 

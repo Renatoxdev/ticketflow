@@ -254,16 +254,6 @@ export function buildSeatsWebSocketUrl(eventId: string): string {
   return url.toString();
 }
 
-export async function checkout(session: AuthSession, eventId: string, seatLabel: string): Promise<Ticket> {
-  const response = await fetch(`${API_BASE_URL}/checkout`, {
-    method: "POST",
-    headers: authHeaders(session),
-    body: JSON.stringify({event_id: eventId, seat_label: seatLabel}),
-  });
-
-  return toTicket(await parseJson<Record<string, unknown>>(response));
-}
-
 export async function createPixPayment(session: AuthSession, eventId: string, seatLabels: string[] | string): Promise<Payment> {
   const labels = Array.isArray(seatLabels) ? seatLabels : [seatLabels];
   const response = await fetch(`${API_BASE_URL}/payments/pix`, {

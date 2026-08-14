@@ -28,10 +28,29 @@ function loadStoredSession(): AuthSession | null {
   try {
     const parsed = JSON.parse(rawSession) as AuthSession;
     if (!parsed.accessToken || !parsed.email || !parsed.role) return null;
+    if (isTokenExpired(parsed.accessToken)) {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
     return parsed;
   } catch {
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
     return null;
+  }
+}
+
+function isTokenExpired(token: string) {
+  const [, payload] = token.split(".");
+  if (!payload) return true;
+
+  try {
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(window.atob(padded)) as {exp?: number};
+    if (!decoded.exp) return true;
+    return decoded.exp * 1000 <= Date.now();
+  } catch {
+    return true;
   }
 }
 
@@ -41,6 +60,13 @@ function saveSession(session: AuthSession) {
 
 function clearStoredSession() {
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+function scrollToTop() {
+  const reset = () => window.scrollTo({top: 0, left: 0, behavior: "auto"});
+  window.requestAnimationFrame(reset);
+  window.setTimeout(reset, 80);
+  window.setTimeout(reset, 180);
 }
 
 function viewForRole(role: UserRole): Mode {
@@ -73,11 +99,16 @@ export function App() {
     loadSharedTicket();
   }, []);
 
+  useEffect(() => {
+    scrollToTop();
+  }, [view, session?.email]);
+
   function openView(nextView: View) {
     setView(nextView);
     setAuthError(null);
     setSharedTicket(null);
     setSharedError(null);
+    scrollToTop();
   }
 
   function handleAuthenticated(nextSession: AuthSession) {
@@ -85,12 +116,14 @@ export function App() {
     saveSession(nextSession);
     setAuthError(null);
     setView(viewForRole(nextSession.role));
+    scrollToTop();
   }
 
   function logout() {
     setSession(null);
     clearStoredSession();
     setView("home");
+    scrollToTop();
   }
 
   async function loginDemo(email: string, password: string) {
@@ -227,6 +260,11 @@ function HomePanel({
           O objetivo é demonstrar um fluxo completo de produto: integração externa, controle de capacidade, emissão de
           ingresso e check-in sem reutilização do mesmo código.
         </p>
+        <div className="product-highlights" aria-label="Destaques do TicketFlow">
+          <span>Catálogo TMDb</span>
+          <span>Assentos sincronizados</span>
+          <span>QR Code validável</span>
+        </div>
         {session && <StateBlock title="Usuário conectado" text={`${session.email} · ${roleLabel(session.role)}`} />}
       </section>
 
@@ -406,6 +444,7 @@ function AuthCard({
         {demoAccounts.map((account) => (
           <button disabled={loading} key={account.email} onClick={() => onLoginDemo(account.email, account.password)} type="button">
             <strong>{account.label}</strong>
+            {" "}
             <span>{account.email} / {account.password}</span>
           </button>
         ))}

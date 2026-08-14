@@ -2,20 +2,28 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.db.models import CheckoutStatus, Payment, PaymentStatus, Ticket, TicketStatus
-
-
-class CheckoutCreate(BaseModel):
-    event_id: UUID
-    seat_label: str = Field(min_length=2, max_length=8)
 
 
 class PaymentCreate(BaseModel):
     event_id: UUID
     seat_label: str | None = Field(default=None, min_length=2, max_length=8)
     seat_labels: list[str] | None = None
+
+    @field_validator("seat_labels")
+    @classmethod
+    def validate_seat_labels(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        if not value:
+            raise ValueError("Escolha pelo menos um assento.")
+        for seat_label in value:
+            cleaned = seat_label.strip()
+            if len(cleaned) < 2 or len(cleaned) > 8:
+                raise ValueError("Cada assento precisa ter entre 2 e 8 caracteres.")
+        return value
 
 
 class PaymentRead(BaseModel):

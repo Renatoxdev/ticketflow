@@ -9,13 +9,31 @@ from app.db.models import Event, EventStatus, Payment, PaymentSeat, PaymentStatu
 from app.events.schemas import EventCreate, EventUpdate, SeatRead
 
 
+def as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def ensure_future_session_date(value: datetime, message: str) -> datetime:
+    starts_at = as_aware_utc(value)
+    if starts_at <= datetime.now(UTC):
+        raise ConflictError(message)
+    return starts_at
+
+
 def create_published_event(db: Session, organizer: User, data: EventCreate) -> Event:
+    starts_at = ensure_future_session_date(
+        data.starts_at,
+        "A sessao precisa ser criada para uma data e horario futuros.",
+    )
+
     event = Event(
         organizer_id=organizer.id,
         title=data.title,
         description=data.description,
         image_url=str(data.image_url) if data.image_url else None,
-        starts_at=data.starts_at,
+        starts_at=starts_at,
         venue=data.venue,
         capacity=data.capacity,
         price=data.price,
@@ -45,9 +63,9 @@ def list_available_events(
             func.lower(Event.title).like(search) | func.lower(Event.venue).like(search),
         )
     if date_from:
-        statement = statement.where(Event.starts_at >= date_from)
+        statement = statement.where(Event.starts_at >= as_aware_utc(date_from))
     if date_to:
-        statement = statement.where(Event.starts_at <= date_to)
+        statement = statement.where(Event.starts_at <= as_aware_utc(date_to))
     if max_price is not None:
         statement = statement.where(Event.price <= max_price)
 
@@ -68,11 +86,17 @@ def list_organizer_events(db: Session, organizer: User) -> list[Event]:
 def update_organizer_event(db: Session, event_id: UUID, organizer: User, data: EventUpdate) -> Event:
     event = get_event_for_organizer(db, event_id, organizer)
     if event is None:
-        raise NotFoundError("Sessão não encontrada.")
+        raise NotFoundError("Sessao nao encontrada.")
     if event.status == EventStatus.CANCELLED:
-        raise ConflictError("Sessão cancelada não pode ser editada.")
+        raise ConflictError("Sessao cancelada nao pode ser editada.")
 
     values = data.model_dump(exclude_unset=True)
+    if values.get("starts_at") is not None:
+        values["starts_at"] = ensure_future_session_date(
+            values["starts_at"],
+            "A sessao precisa ficar em uma data e horario futuros.",
+        )
+
     if "image_url" in values and values["image_url"] is not None:
         values["image_url"] = str(values["image_url"])
 
@@ -84,7 +108,7 @@ def update_organizer_event(db: Session, event_id: UUID, organizer: User, data: E
             )
         )
         if sold_count is not None and values["capacity"] < sold_count:
-            raise ConflictError("A capacidade não pode ser menor que os ingressos vendidos.")
+            raise ConflictError("A capacidade nao pode ser menor que os ingressos vendidos.")
 
     for field, value in values.items():
         setattr(event, field, value)
@@ -97,17 +121,21 @@ def update_organizer_event(db: Session, event_id: UUID, organizer: User, data: E
 def cancel_organizer_event(db: Session, event_id: UUID, organizer: User) -> Event:
     event = get_event_for_organizer(db, event_id, organizer)
     if event is None:
-        raise NotFoundError("Sessão não encontrada.")
+        raise NotFoundError("Sessao nao encontrada.")
 
     event.status = EventStatus.CANCELLED
     for ticket in event.tickets:
         if ticket.status == TicketStatus.VALID:
             ticket.status = TicketStatus.CANCELLED
+    for payment in event.payments:
+        if payment.status == PaymentStatus.PENDING:
+            payment.status = PaymentStatus.FAILED
+            for payment_seat in payment.seats:
+                payment_seat.status = PaymentStatus.FAILED
 
     db.commit()
     db.refresh(event)
     return event
-
 
 def build_seat_label(index: int) -> str:
     row = chr(ord("A") + (index // 10))

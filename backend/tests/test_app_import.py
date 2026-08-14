@@ -7,7 +7,7 @@ def test_app_registers_phase_two_routes() -> None:
     assert "/organizer/external-catalog" in paths
     assert "/organizer/events" in paths
     assert "/events" in paths
-    assert "/checkout" in paths
+    assert "/payments/pix" in paths
     assert "/customer/tickets/{ticket_id}/qr" in paths
     assert "/tickets/share/{token}" in paths
     assert "/gate/check-ins" in paths

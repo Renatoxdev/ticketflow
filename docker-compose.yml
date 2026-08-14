@@ -21,7 +21,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/verzel_events
       JWT_SECRET: change-me-in-development
-      CORS_ORIGINS: '["http://localhost:5173"]'
+      CORS_ORIGINS: http://localhost:5173
       TMDB_API_KEY: ${TMDB_API_KEY:-}
     ports:
       - "8000:8000"

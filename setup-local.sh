@@ -28,8 +28,21 @@ else
 fi
 
 docker compose up -d --build
-docker compose exec backend alembic upgrade head
-docker compose exec backend python -m app.db.seed
+
+echo "Aguardando backend inicializar migrations e seed..."
+for attempt in $(seq 1 40); do
+  if curl -fsS "http://localhost:8000/health" >/dev/null 2>&1; then
+    break
+  fi
+
+  if [ "$attempt" -eq 40 ]; then
+    echo "Backend nao respondeu em http://localhost:8000/health."
+    echo "Veja os logs com: docker compose logs backend"
+    exit 1
+  fi
+
+  sleep 2
+done
 
 echo ""
 echo "Ambiente local pronto."
