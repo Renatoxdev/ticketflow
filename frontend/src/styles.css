@@ -55,5 +55,13 @@ code{display:block;max-width:100%;overflow-wrap:anywhere;border:1px solid var(--
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
 /* Keep the two customer columns in independent stacking contexts. */
-.customer-showcase{align-self:start}
-.checkout-panel{position:relative;z-index:1;align-self:start}
+.customer-showcase,.checkout-panel{align-self:start;overflow:hidden}
+.customer-showcase .filter-form{grid-template-columns:repeat(2,minmax(0,1fr))}.customer-showcase .filter-form button{grid-column:1/-1}
+
+.is-loading{display:inline-flex;align-items:center;justify-content:center;gap:9px;opacity:.82!important}
+.is-loading::before,.spinner{width:15px;height:15px;flex:0 0 auto;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;content:"";animation:spin .7s linear infinite}
+.loading-state{display:flex;min-height:88px;align-items:center;justify-content:center;gap:12px;border:1px solid var(--line);border-radius:12px;color:var(--soft);background:var(--surface-2);font-size:.84rem;font-weight:600}
+.catalog-skeleton{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.skeleton-poster{aspect-ratio:2/3;border-radius:var(--sm);background:linear-gradient(100deg,var(--surface-2) 20%,var(--surface-3) 40%,var(--surface-2) 60%);background-size:200% 100%;animation:shimmer 1.25s ease-in-out infinite}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes shimmer{to{background-position:-200% 0}}
+@media(max-width:420px){.catalog-skeleton{grid-template-columns:repeat(2,minmax(0,1fr))}.skeleton-poster:last-of-type{display:none}}

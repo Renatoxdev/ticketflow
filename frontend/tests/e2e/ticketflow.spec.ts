@@ -98,3 +98,33 @@ test("pagamento recusado permite nova tentativa", async ({page}) => {
   await page.getByRole("button", {name: /Tentar pagamento novamente/}).click();
   await expect(page.getByRole("button", {name: /Confirmar pagamento aprovado/})).toBeEnabled();
 });
+
+test("carregamento do catálogo oferece feedback visível", async ({page}) => {
+  await page.goto("/");
+  await page.getByRole("button", {name: /Cliente user1/}).click();
+  await expect(page.getByRole("heading", {name: /Em cartaz/})).toBeVisible();
+
+  await page.route("**/*", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    await route.continue();
+  });
+
+  const showcase = page.locator(".customer-showcase");
+  await showcase.locator(".filter-form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+  await expect(showcase.getByRole("button", {name: "Filtrando"})).toBeVisible();
+});
+
+test("área do cliente não cria overflow em mobile e tablet", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.getByRole("button", {name: /Cliente user1/}).click();
+  await expect(page.getByRole("heading", {name: /Escolha seu filme/})).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.setViewportSize({width: 820, height: 1180});
+  await page.reload();
+  await expect(page.getByRole("heading", {name: /Escolha seu filme/})).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

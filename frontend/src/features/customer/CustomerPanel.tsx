@@ -312,7 +312,7 @@ export function CustomerPanel({session}: Props) {
       <section className="panel customer-showcase">
         <div className="panel-title-row">
           <h3>Em cartaz</h3>
-          <button className="ghost-button" disabled={loading} onClick={loadEvents} type="button">
+          <button aria-busy={loading} className={`ghost-button ${loading ? "is-loading" : ""}`} disabled={loading} onClick={loadEvents} type="button">
             {loading ? "Atualizando" : "Atualizar"}
           </button>
         </div>
@@ -334,14 +334,15 @@ export function CustomerPanel({session}: Props) {
             Preço máximo
             <input min={0} step="0.01" value={filters.maxPrice} onChange={(event) => setFilters({...filters, maxPrice: event.target.value})} type="number" />
           </label>
-          <button disabled={loading} type="submit">
-            Filtrar
+          <button aria-busy={loading} className={loading ? "is-loading" : ""} disabled={loading} type="submit">
+            {loading ? "Filtrando" : "Filtrar"}
           </button>
         </form>
 
         {error && <p className="feedback danger">{error}</p>}
 
         <div className="poster-grid">
+          {loading && events.length === 0 && <CatalogSkeleton />}
           {!loading && events.length === 0 && (
             <div className="empty-state">
               <strong>Nenhuma sessão disponível</strong>
@@ -642,6 +643,15 @@ function CapacityBar({event, compact = false}: {event: Event; compact?: boolean}
       <div className="capacity-track" aria-label={`${event.soldCount} de ${event.capacity} ingressos vendidos`}>
         <span style={{width: `${percent}%`}} />
       </div>
+    </div>
+  );
+}
+
+function CatalogSkeleton() {
+  return (
+    <div className="catalog-skeleton" aria-label="Carregando sessões" role="status">
+      {[0, 1, 2].map((item) => <span aria-hidden="true" className="skeleton-poster" key={item} />)}
+      <span className="sr-only">Carregando sessões em cartaz.</span>
     </div>
   );
 }

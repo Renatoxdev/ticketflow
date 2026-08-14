@@ -385,7 +385,7 @@ function AuthCard({
               value={loginForm.password}
             />
           </label>
-          <button className="wide-action" disabled={loading} type="submit">
+          <button aria-busy={loading} className={`wide-action ${loading ? "is-loading" : ""}`} disabled={loading} type="submit">
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
@@ -431,7 +431,7 @@ function AuthCard({
               <option value="ORGANIZER">Organizador</option>
             </select>
           </label>
-          <button className="wide-action" disabled={loading} type="submit">
+          <button aria-busy={loading} className={`wide-action ${loading ? "is-loading" : ""}`} disabled={loading} type="submit">
             {loading ? "Criando..." : "Criar conta"}
           </button>
         </form>

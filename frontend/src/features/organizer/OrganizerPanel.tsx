@@ -185,7 +185,7 @@ export function OrganizerPanel({session}: Props) {
             Buscar filme ou série
             <input value={query} onChange={(event) => setQuery(event.target.value)} minLength={2} required />
           </label>
-          <button disabled={loading} type="submit">
+          <button aria-busy={loading} className={loading ? "is-loading" : ""} disabled={loading} type="submit">
             {loading ? "Buscando" : "Buscar"}
           </button>
         </form>
@@ -193,6 +193,12 @@ export function OrganizerPanel({session}: Props) {
         {error && <p className="feedback danger">{error}</p>}
 
         <div className="catalog-list">
+          {loading && (
+            <div className="loading-state" role="status">
+              <span className="spinner" aria-hidden="true" />
+              <span>Buscando títulos no catálogo...</span>
+            </div>
+          )}
           {!loading && items.length === 0 && (
             <div className="empty-state">
               <strong>Comece pela busca</strong>
@@ -274,7 +280,7 @@ export function OrganizerPanel({session}: Props) {
                   type="number"
                 />
               </label>
-              <button disabled={saving} type="submit">
+              <button aria-busy={saving} className={saving ? "is-loading" : ""} disabled={saving} type="submit">
                 {saving ? "Publicando" : "Publicar sessão"}
               </button>
             </form>
@@ -297,7 +303,7 @@ export function OrganizerPanel({session}: Props) {
             <p className="section-label">Gerenciamento</p>
             <h3>Sessões cadastradas</h3>
           </div>
-          <button className="ghost-button" disabled={managementLoading} onClick={loadManagedEvents} type="button">
+          <button aria-busy={managementLoading} className={`ghost-button ${managementLoading ? "is-loading" : ""}`} disabled={managementLoading} onClick={loadManagedEvents} type="button">
             {managementLoading ? "Atualizando" : "Atualizar"}
           </button>
         </div>
@@ -387,7 +393,7 @@ export function OrganizerPanel({session}: Props) {
                 type="number"
               />
             </label>
-            <button disabled={saving} type="submit">
+            <button aria-busy={saving} className={saving ? "is-loading" : ""} disabled={saving} type="submit">
               {saving ? "Salvando" : "Salvar alterações"}
             </button>
           </form>

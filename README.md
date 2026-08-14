@@ -248,7 +248,7 @@ Backend:
 ```bash
 cd backend
 python -m pytest -p no:cacheprovider -q
-python -m ruff check app tests
+python -m ruff check .
 ```
 
 Frontend:
@@ -273,7 +273,7 @@ Resultado da última verificação local:
 17 passed
 All checks passed!
 npm run build OK
-Playwright E2E: 4 passed
+Playwright E2E: 6 passed (incluindo loading, mobile e tablet)
 docker build OK
 container único: /health OK, home OK, criação/listagem de sessão OK
 ```
@@ -307,13 +307,11 @@ alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0
 
 ## Uso De IA
 
-Usei IA como apoio durante o desenvolvimento, principalmente para organizar o raciocínio por etapas, revisar decisões técnicas e validar se a implementação estava coerente com os requisitos do desafio.
+Usei IA para apoiar tarefas concretas, mas revisei manualmente cada alteração e validei os resultados com testes. Ela foi utilizada para decompor o enunciado em fluxos verificáveis, investigar o problema de persistência após reload, revisar regras de concorrência e reserva de assentos, levantar casos extremos do checkout, reconstruir a camada visual e preparar testes automatizados.
 
-No início, usei IA para transformar o enunciado em um plano de trabalho: separar funcionalidades obrigatórias, opcionais, regras de negócio e pontos de atenção como concorrência, autenticação, QR Code, pagamento simulado e validação na portaria.
+A persistência foi confirmada por um teste E2E que cria uma sessão, recarrega a página e procura o mesmo registro retornado pela API. As regras transacionais de capacidade, reserva, emissão e disputa simultânea por assentos foram exercitadas em testes integrados com PostgreSQL. O fluxo de compra, pagamento, emissão e segundo check-in com o mesmo token foi validado pelo Playwright. A área do cliente também foi verificada contra overflow horizontal em viewports de 390 px e 820 px.
 
-Durante a implementação, usei IA como apoio para revisão de código, identificação de possíveis bugs, melhoria de textos da interface, revisão do README e preparação de perguntas técnicas que poderiam surgir a partir do próprio projeto.
-
-Sem IA, fiquei responsável pelas decisões finais de escopo, escolha das tecnologias, validação dos fluxos no navegador, ajustes visuais, testes locais, configuração do ambiente, deploy e revisão do comportamento real da aplicação. A IA foi usada como ferramenta de apoio para pesquisa e refinamento, mas as decisões finais e os ajustes do projeto foram feitos por mim.
+As sugestões geradas por IA não foram consideradas corretas apenas porque o código compilava. As alterações foram revisadas no código e verificadas com pytest, Ruff, build TypeScript/Vite, Playwright e construção do container de produção. As decisões de arquitetura, escopo do produto e aceitação final das mudanças permaneceram sob minha responsabilidade.
 
 ## Limites Da Versão
 

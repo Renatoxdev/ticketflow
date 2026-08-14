@@ -184,7 +184,7 @@ export function GatePanel({session}: Props) {
               rows={5}
             />
           </label>
-          <button className="wide-action" disabled={loading} type="submit">
+          <button aria-busy={loading} className={`wide-action ${loading ? "is-loading" : ""}`} disabled={loading} type="submit">
             {loading ? "Conferindo" : "Validar entrada"}
           </button>
         </form>
