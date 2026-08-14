@@ -6,6 +6,7 @@ TicketFlow é uma plataforma de bilheteria online para sessões de cinema. O sis
 
 - Cadastro e login de usuários.
 - Sessão persistida no navegador após atualizar a página.
+- Troca de conta somente após logout explícito da sessão atual.
 - Login único com redirecionamento automático conforme o perfil do usuário.
 - Três perfis: organizador, cliente e portaria.
 - Busca de filmes na TMDb pelo backend.

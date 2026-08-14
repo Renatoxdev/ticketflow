@@ -97,6 +97,8 @@ test("aplicação abre na Home mesmo com sessão persistida", async ({page}) => 
   await expect(page.getByRole("heading", {name: /Bilheteria online/})).toBeVisible();
   await expect(page.locator(".rail-status").getByText("user1@ticketflow.com", {exact: true})).toBeVisible();
   await expect(page.getByRole("button", {name: /Área do cliente/})).toBeVisible();
+  await expect(page.getByRole("button", {name: /Organizador demo/})).toHaveCount(0);
+  await expect(page.getByRole("button", {name: "Sair para trocar de conta"})).toBeVisible();
 });
 
 test("evento cancelado permanece no histórico do organizador", async ({page}) => {

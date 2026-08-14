@@ -150,6 +150,7 @@ export function App() {
       onAuthenticated={handleAuthenticated}
       onAuthError={setAuthError}
       onAuthLoading={setAuthLoading}
+      onLogout={logout}
     />
   ) : session?.role === "ORGANIZER" ? (
     <OrganizerPanel session={session} />
@@ -166,6 +167,7 @@ export function App() {
       onAuthenticated={handleAuthenticated}
       onAuthError={setAuthError}
       onAuthLoading={setAuthLoading}
+      onLogout={logout}
     />
   );
 
@@ -246,7 +248,8 @@ function HomePanel({
   onAuthenticated,
   onAuthError,
   onAuthLoading,
-}: AuthPanelProps & {session: AuthSession | null}) {
+  onLogout,
+}: AuthPanelProps & {session: AuthSession | null; onLogout: () => void}) {
   return (
     <div className="demo-login">
       <section className="intro-panel">
@@ -278,16 +281,34 @@ function HomePanel({
         ))}
       </section>
 
-      <AuthCard
-        loading={loading}
-        error={error}
-        onLoginDemo={onLoginDemo}
-        onAuthenticated={onAuthenticated}
-        onAuthError={onAuthError}
-        onAuthLoading={onAuthLoading}
-      />
+      {session ? (
+        <section className="auth-card connected-account-card">
+          <p className="section-label">Sessão ativa</p>
+          <h3>Você já está conectado</h3>
+          <p className="demo-copy">{session.email} · {roleLabel(session.role)}</p>
+          <button className="wide-action" onClick={() => openAreaForSession(session)} type="button">
+            Acessar {areaTitle(viewForRole(session.role)).toLowerCase()}
+          </button>
+          <button className="ghost-button danger-button" onClick={onLogout} type="button">
+            Sair para trocar de conta
+          </button>
+        </section>
+      ) : (
+        <AuthCard
+          loading={loading}
+          error={error}
+          onLoginDemo={onLoginDemo}
+          onAuthenticated={onAuthenticated}
+          onAuthError={onAuthError}
+          onAuthLoading={onAuthLoading}
+        />
+      )}
     </div>
   );
+
+  function openAreaForSession(activeSession: AuthSession) {
+    onAuthenticated(activeSession);
+  }
 }
 
 type AuthPanelProps = {
